@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16
+    container_name: dafa_manager_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: dafa_manager
+    ports:
+      - "5432:5432"
+    volumes:
+      - dafa_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  dafa_postgres_data:

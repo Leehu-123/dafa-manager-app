@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* DAFA custom colors */
+  --color-dafa-primary: #444444;
+  --color-dafa-accent: #A14F39;
+  --color-dafa-accent-hover: #8a3f2d;
+  --color-dafa-accent-light: oklch(from #A14F39 l c h / 0.1);
+  --color-dafa-bg: #faf8f7;
+  --color-dafa-white: #ffffff;
+  --color-dafa-text: #333333;
+  --color-dafa-muted: #5a5a5a;
+  --color-dafa-border: #e5e5e5;
+  --color-dafa-sidebar: #2d2d2d;
+  --color-dafa-sidebar-hover: #3a3a3a;
+  
+  /* Status colors */
+  --color-status-todo: #94a3b8;
+  --color-status-in-progress: #3b82f6;
+  --color-status-review: #f59e0b;
+  --color-status-done: #22c55e;
+  --color-status-overdue: #ef4444;
+  
+  /* Priority colors */
+  --color-priority-low: #22c55e;
+  --color-priority-medium: #f59e0b;
+  --color-priority-high: #ef4444;
+  --color-priority-urgent: #dc2626;
+  
+  /* Font */
+  --font-sans: 'Montserrat', system-ui, -apple-system, sans-serif;
+}
+
+@layer base {
+  :root {
+    --background: var(--color-dafa-bg);
+    --foreground: var(--color-dafa-text);
+  }
+  
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+  }
+
+  ::selection {
+    background-color: var(--color-dafa-accent-light);
+    color: var(--color-dafa-accent);
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-dafa-border);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-dafa-muted);
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  }
+}
