@@ -14,6 +14,8 @@ interface UserMenuProps {
   };
 }
 
+import { signOut } from 'next-auth/react';
+
 export function UserMenu({ user }: UserMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -71,7 +73,7 @@ export function UserMenu({ user }: UserMenuProps) {
             <button 
               className="group flex w-full items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
               onClick={() => {
-                // Perform sign out
+                signOut({ callbackUrl: '/api/auth/signin' });
                 setIsOpen(false);
               }}
             >

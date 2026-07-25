@@ -33,7 +33,7 @@ export function EmployeeList() {
       const [empRes, branchRes, deptRes] = await Promise.all([
         fetch(empUrl),
         fetch("/api/organization/branches"),
-        fetch("/api/organization/departments")
+        fetch("/api/departments")
       ]);
       
       if (empRes.ok) setEmployees(await empRes.json());
@@ -76,9 +76,9 @@ export function EmployeeList() {
   const openModal = (item?: any) => {
     if (item) {
       setFormData({ 
-        id: item.id, name: item.name, email: item.email, password: "", phone: item.phone || "", role: item.role, 
-        jobTitle: item.jobTitle || "", branchId: item.branchId || "", 
-        departmentIds: item.departments.map((d: any) => d.departmentId), isActive: item.isActive 
+        id: item.id, name: item.fullName || item.name, email: item.email, password: "", phone: item.phone || "", role: item.role, 
+        jobTitle: item.jobTitle || "", branchId: item.primaryBranchId || item.branchId || "", 
+        departmentIds: (item.departmentMember || item.departments || []).map((d: any) => d.departmentId), isActive: item.isActive 
       });
     } else {
       setFormData({ 
@@ -135,7 +135,7 @@ export function EmployeeList() {
                 <tr key={emp.id} className="border-b dafa-border bg-white hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
-                      <span className="font-bold dafa-text">{emp.name}</span>
+                      <span className="font-bold dafa-text">{emp.fullName || emp.name}</span>
                       <span className="text-xs dafa-muted">{emp.email}</span>
                       <span className="text-xs dafa-muted">{emp.phone}</span>
                     </div>
@@ -148,12 +148,12 @@ export function EmployeeList() {
                   <td className="px-6 py-4 dafa-muted">{emp.jobTitle || "-"}</td>
                   <td className="px-6 py-4">
                     <div className="flex flex-wrap gap-1">
-                      {emp.departments.map((d: any) => (
-                        <Badge key={d.id} variant="outline" className="text-[10px]">{d.department.name}</Badge>
+                      {(emp.departmentMember || emp.departments || []).map((d: any) => (
+                        <Badge key={d.id} variant="outline" className="text-[10px]">{d.department?.name || 'N/A'}</Badge>
                       ))}
                     </div>
                   </td>
-                  <td className="px-6 py-4 dafa-muted">{emp.branch?.name || "-"}</td>
+                  <td className="px-6 py-4 dafa-muted">{emp.primaryBranch?.name || emp.branch?.name || "-"}</td>
                   <td className="px-6 py-4 text-center">
                     <Badge variant={emp.isActive ? "outline" : "secondary"} className={emp.isActive ? "border-green-500 text-green-700 bg-green-50" : ""}>
                       {emp.isActive ? "Đang làm việc" : "Đã nghỉ"}
@@ -180,7 +180,7 @@ export function EmployeeList() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-4">
           <div className="grid grid-cols-2 gap-4">
             <Input label="Họ và tên" required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
-            <Input label="Email" type="email" required disabled={!!formData.id} value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+            <Input label="Email" type="email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
             <Input label="Số điện thoại" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
             <Input label={formData.id ? "Mật khẩu mới (để trống nếu không đổi)" : "Mật khẩu"} type="password" required={!formData.id} value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} />
             
@@ -189,6 +189,7 @@ export function EmployeeList() {
               <select className="border dafa-border rounded-md px-3 py-2 text-sm bg-white" value={formData.role} onChange={(e) => setFormData({...formData, role: e.target.value})}>
                 <option value="EMPLOYEE">Nhân viên</option>
                 <option value="MANAGER">Quản lý</option>
+                <option value="ACCOUNTANT">Kế toán / HCNS</option>
                 <option value="ADMIN">Quản trị viên</option>
               </select>
             </div>
@@ -197,8 +198,8 @@ export function EmployeeList() {
             
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium dafa-text">Chi nhánh</label>
-              <select required className="border dafa-border rounded-md px-3 py-2 text-sm bg-white" value={formData.branchId} onChange={(e) => setFormData({...formData, branchId: e.target.value})}>
-                <option value="">Chọn chi nhánh</option>
+              <select className="border dafa-border rounded-md px-3 py-2 text-sm bg-white" value={formData.branchId || ""} onChange={(e) => setFormData({...formData, branchId: e.target.value})}>
+                <option value="">Ban Lãnh Đạo (Toàn công ty)</option>
                 {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
             </div>

@@ -26,6 +26,8 @@ interface SidebarProps {
   };
 }
 
+import { signOut } from 'next-auth/react';
+
 export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -35,7 +37,7 @@ export function Sidebar({ user }: SidebarProps) {
   const navItems = [
     { name: 'Tổng quan', href: '/', icon: LayoutDashboard, adminOnly: false },
     { name: 'Công việc', href: '/tasks', icon: CheckSquare, adminOnly: false },
-    { name: 'Báo cáo', href: '/reports', icon: FileText, adminOnly: false },
+    // { name: 'Báo cáo', href: '/reports', icon: FileText, adminOnly: false },
     { name: 'KPI', href: '/kpi', icon: BarChart3, adminOnly: false },
     { name: 'Nhân sự & Tổ chức', href: '/organization', icon: Users, adminOnly: true },
     { name: 'Cài đặt', href: '/settings', icon: Settings, adminOnly: true },
@@ -113,6 +115,7 @@ export function Sidebar({ user }: SidebarProps) {
         
         <div className={`mt-4 flex ${collapsed ? 'flex-col space-y-2' : 'items-center justify-between'}`}>
           <button 
+            onClick={() => signOut({ callbackUrl: '/api/auth/signin' })}
             className={`text-gray-400 hover:text-white p-1 rounded hover:bg-gray-800 transition-colors ${collapsed ? 'mx-auto' : ''}`}
             title="Đăng xuất"
           >

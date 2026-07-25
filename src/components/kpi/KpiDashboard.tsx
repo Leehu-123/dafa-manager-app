@@ -9,18 +9,41 @@ import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis
 } from "recharts";
 import { getKpiRating, getKpiRatingColor } from "@/lib/utils";
-import { Download } from "lucide-react";
+import { Download, Trash2 } from "lucide-react";
 
 export function KpiDashboard({ user }: { user: any }) {
+  const [dateRange, setDateRange] = useState("this_month");
+  const [cycleFilter, setCycleFilter] = useState("ALL");
+  const [selectedDept, setSelectedDept] = useState("");
+  const [selectedEmp, setSelectedEmp] = useState(user.role === "EMPLOYEE" ? user.id : "");
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("month");
 
   useEffect(() => {
+    const fetchDropdowns = async () => {
+      if (user.role !== "EMPLOYEE") {
+        const [deptRes, empRes] = await Promise.all([
+          fetch("/api/departments"),
+          fetch("/api/organization/employees")
+        ]);
+        if (deptRes.ok) setDepartments(await deptRes.json());
+        if (empRes.ok) setEmployees(await empRes.json());
+      }
+    };
+    fetchDropdowns();
+  }, [user.role]);
+
+  useEffect(() => {
     const fetchRecords = async () => {
       setLoading(true);
       try {
-        const res = await fetch("/api/kpi/records");
+        const url = new URL("/api/kpi/records", window.location.origin);
+        if (selectedEmp) url.searchParams.append("userId", selectedEmp);
+        
+        const res = await fetch(url.toString());
         if (res.ok) {
           const data = await res.json();
           setRecords(data);
@@ -32,19 +55,70 @@ export function KpiDashboard({ user }: { user: any }) {
       }
     };
     fetchRecords();
-  }, []);
+  }, [selectedEmp]);
 
-  const totalScore = records.reduce((acc, r) => acc + r.score, 0);
-  const maxScore = records.reduce((acc, r) => acc + r.criteria.weight, 0);
+  const filteredRecordsByDate = records.filter(r => {
+    const d = new Date(r.periodStart);
+    const now = new Date();
+    
+    if (dateRange === "this_month") {
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }
+    if (dateRange === "last_month") {
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      return d.getMonth() === lastMonth.getMonth() && d.getFullYear() === lastMonth.getFullYear();
+    }
+    if (dateRange === "this_week") {
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      return d >= startOfWeek;
+    }
+    if (dateRange === "last_week") {
+      const startOfLastWeek = new Date(now);
+      startOfLastWeek.setDate(now.getDate() - now.getDay() - 7);
+      const endOfLastWeek = new Date(startOfLastWeek);
+      endOfLastWeek.setDate(startOfLastWeek.getDate() + 6);
+      return d >= startOfLastWeek && d <= endOfLastWeek;
+    }
+    if (dateRange === "this_quarter") {
+      const currentQuarter = Math.floor(now.getMonth() / 3);
+      const rQuarter = Math.floor(d.getMonth() / 3);
+      return currentQuarter === rQuarter && now.getFullYear() === d.getFullYear();
+    }
+    return true;
+  });
+
+  const filteredRecords = cycleFilter === "ALL" 
+    ? filteredRecordsByDate 
+    : filteredRecordsByDate.filter(r => r.criteria?.evaluationCycle === cycleFilter);
+
+  const totalScore = filteredRecords.reduce((acc, r) => acc + r.score, 0);
+  const maxScore = filteredRecords.reduce((acc, r) => acc + (r.criteria?.weightPercent || 10), 0);
   const avgScore = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
   const rating = getKpiRating(avgScore);
   const ratingColor = getKpiRatingColor(avgScore);
   
-  const passedCount = records.filter(r => (r.actual / r.criteria.target) >= 1).length;
-  const failedCount = records.length - passedCount;
+  const passedCount = filteredRecords.filter(r => (r.actual / r.criteria.target) >= 1).length;
+  const failedCount = filteredRecords.length - passedCount;
 
   const handleExport = (format: string) => {
     window.location.href = `/api/kpi/export?format=${format}`;
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Bạn có chắc chắn muốn xóa đánh giá này?")) return;
+    
+    try {
+      const res = await fetch(`/api/kpi/records?id=${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setRecords(records.filter(r => r.id !== id));
+      } else {
+        alert("Có lỗi xảy ra khi xóa");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Lỗi hệ thống");
+    }
   };
 
   if (loading) {
@@ -54,24 +128,64 @@ export function KpiDashboard({ user }: { user: any }) {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex justify-between items-center">
-        <select 
-          className="border dafa-border rounded-md px-3 py-2 text-sm dafa-text bg-white"
-          value={period}
-          onChange={(e) => setPeriod(e.target.value)}
-        >
-          <option value="month">Tháng này</option>
-          <option value="quarter">Quý này</option>
-        </select>
+        <div className="flex gap-2">
+          {user.role !== "EMPLOYEE" && (
+            <>
+              <select 
+                className="border dafa-border rounded-md px-3 py-2 text-sm bg-white"
+                value={selectedDept}
+                onChange={(e) => { setSelectedDept(e.target.value); setSelectedEmp(""); }}
+              >
+                <option value="">Tất cả phòng ban</option>
+                {departments.map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+              <select 
+                className="border dafa-border rounded-md px-3 py-2 text-sm bg-white"
+                value={selectedEmp}
+                onChange={(e) => setSelectedEmp(e.target.value)}
+              >
+                <option value="">Tất cả nhân viên (Gộp chung)</option>
+                {employees
+                  .filter(emp => !selectedDept || emp.departmentMember?.some((dm: any) => dm.departmentId === selectedDept))
+                  .map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.fullName}</option>
+                ))}
+              </select>
+            </>
+          )}
+
+          <select 
+            className="border dafa-border rounded-md px-3 py-2 text-sm bg-white"
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value)}
+          >
+            <option value="this_week">Tuần này</option>
+            <option value="last_week">Tuần trước</option>
+            <option value="this_month">Tháng này</option>
+            <option value="last_month">Tháng trước</option>
+            <option value="this_quarter">Quý này</option>
+          </select>
+          <select 
+            className="border dafa-border rounded-md px-3 py-2 text-sm bg-white"
+            value={cycleFilter}
+            onChange={(e) => setCycleFilter(e.target.value)}
+          >
+            <option value="ALL">Tất cả chu kỳ</option>
+            <option value="WEEKLY">Tiêu chí Hàng tuần</option>
+            <option value="MONTHLY">Tiêu chí Hàng tháng</option>
+            <option value="QUARTERLY">Tiêu chí Hàng quý</option>
+          </select>
+        </div>
         
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => handleExport("xlsx")}>
-            <Download className="w-4 h-4 mr-2" />
-            Xuất Excel
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => handleExport("pdf")}>
-            <Download className="w-4 h-4 mr-2" />
-            Xuất PDF
-          </Button>
+          {(user.role === "ADMIN" || user.role === "ACCOUNTANT") && (
+            <Button variant="primary" size="sm" onClick={() => handleExport("payroll")} className="bg-[#A14F39] hover:bg-[#8a3f2d] text-white">
+              <Download className="w-4 h-4 mr-2" />
+              Xuất Kết Quả Lương (Excel)
+            </Button>
+          )}
         </div>
       </div>
 
@@ -102,7 +216,7 @@ export function KpiDashboard({ user }: { user: any }) {
         <Card className="p-4 h-[400px]">
           <h3 className="text-lg font-bold mb-4 dafa-text">Điểm số theo tiêu chí</h3>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={records}>
+            <BarChart data={filteredRecords}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="criteria.name" tick={{ fontSize: 12 }} />
               <YAxis />
@@ -117,7 +231,7 @@ export function KpiDashboard({ user }: { user: any }) {
         <Card className="p-4 h-[400px]">
           <h3 className="text-lg font-bold mb-4 dafa-text">Đánh giá đa chiều</h3>
           <ResponsiveContainer width="100%" height="100%">
-            <RadarChart cx="50%" cy="50%" outerRadius="80%" data={records}>
+            <RadarChart cx="50%" cy="50%" outerRadius="80%" data={filteredRecords}>
               <PolarGrid />
               <PolarAngleAxis dataKey="criteria.name" tick={{ fontSize: 12 }} />
               <PolarRadiusAxis />
@@ -139,20 +253,28 @@ export function KpiDashboard({ user }: { user: any }) {
                 <th className="px-6 py-3 text-right">Thực tế</th>
                 <th className="px-6 py-3 text-right">Trọng số</th>
                 <th className="px-6 py-3 text-right">Điểm</th>
+                {user.role !== "EMPLOYEE" && <th className="px-6 py-3 text-right">Thao tác</th>}
               </tr>
             </thead>
             <tbody>
-              {records.map((record) => (
-                <tr key={record.id} className="border-b dafa-border bg-white hover:bg-gray-50">
-                  <td className="px-6 py-4 font-medium dafa-text">{record.criteria.name}</td>
-                  <td className="px-6 py-4 dafa-muted">{record.criteria.unit}</td>
-                  <td className="px-6 py-4 text-right font-medium">{record.criteria.target}</td>
-                  <td className="px-6 py-4 text-right font-bold text-blue-600">{record.actual}</td>
-                  <td className="px-6 py-4 text-right">{record.criteria.weight}</td>
-                  <td className="px-6 py-4 text-right font-bold text-[#A14F39]">{record.score.toFixed(2)}</td>
+              {filteredRecords.map((r) => (
+                <tr key={r.id} className="border-b dafa-border bg-white hover:bg-gray-50">
+                  <td className="px-6 py-4 font-medium dafa-text">{r.criteria?.name || 'N/A'}</td>
+                  <td className="px-6 py-4 dafa-muted">{r.criteria?.unit}</td>
+                  <td className="px-6 py-4 text-right font-medium">{r.criteria?.targetValue || 0}</td>
+                  <td className="px-6 py-4 text-right font-bold text-blue-600">{r.actual}</td>
+                  <td className="px-6 py-4 text-right">{r.criteria?.weightPercent || 0}</td>
+                  <td className="px-6 py-4 text-right font-bold text-[#A14F39]">{r.score.toFixed(2)}</td>
+                  {user.role !== "EMPLOYEE" && (
+                    <td className="px-6 py-4 text-right">
+                      <button onClick={() => handleDelete(r.id)} className="text-red-500 hover:text-red-700" title="Xóa">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
-              {records.length === 0 && (
+              {filteredRecords.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-6 py-8 text-center dafa-muted">Không có dữ liệu</td>
                 </tr>

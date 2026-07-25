@@ -1,4 +1,5 @@
 import { KpiEntryForm } from "@/components/kpi/KpiEntryForm";
+import { KpiTabs } from "@/components/kpi/KpiTabs";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
@@ -22,6 +23,7 @@ export default async function KpiEntryPage() {
           Đánh giá và nhập kết quả thực hiện KPI cho nhân viên
         </p>
       </div>
+      <KpiTabs userRole={session.user.role} />
       <KpiEntryForm currentUser={session.user} />
     </div>
   );

@@ -49,30 +49,54 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { fullName, name, phone, role, jobTitle, primaryBranchId, branchId, isActive, password, departmentIds } = body;
+    const { fullName, name, email, phone, role, jobTitle, primaryBranchId, branchId, isActive, password, departmentIds } = body;
     
     const finalFullName = fullName || name;
     const finalBranchId = primaryBranchId || branchId;
 
     let updateData: any = {};
     if (finalFullName) updateData.fullName = finalFullName;
+    if (email) updateData.email = email;
     if (phone !== undefined) updateData.phone = phone;
-    if (role) updateData.role = role;
     if (jobTitle !== undefined) updateData.jobTitle = jobTitle;
-    if (finalBranchId) updateData.primaryBranchId = finalBranchId;
+    if (finalBranchId !== undefined) updateData.primaryBranchId = finalBranchId || null;
     if (isActive !== undefined) updateData.isActive = isActive;
     
     if (password) {
       updateData.passwordHash = await bcrypt.hash(password, 10);
     }
 
+    if (role) {
+      let roleRecord = await prisma.role.findFirst({
+        where: { companyId: session.user.companyId, name: `DAFA_${role}` }
+      });
+      if (!roleRecord) {
+        roleRecord = await prisma.role.create({
+          data: { companyId: session.user.companyId, name: `DAFA_${role}` }
+        });
+      }
+      
+      const userToUpdate = await prisma.user.findUnique({
+        where: { id },
+        include: { userRoles: { include: { role: true } } }
+      });
+      const dafaRoleIds = userToUpdate?.userRoles
+        .filter(ur => ur.role.name.startsWith('DAFA_'))
+        .map(ur => ur.roleId) || [];
+
+      updateData.userRoles = {
+        deleteMany: { roleId: { in: dafaRoleIds } },
+        create: { roleId: roleRecord.id }
+      };
+    }
+
     // Process department updates if provided
     if (departmentIds && Array.isArray(departmentIds)) {
-      await prisma.departmentMember.deleteMany({ where: { userId: id } });
       updateData.departmentMember = {
+        deleteMany: {},
         create: departmentIds.map((deptId: string) => ({
           departmentId: deptId,
-          isManager: role === "MANAGER" || (updateData.role === "MANAGER")
+          isHead: role === "MANAGER"
         }))
       };
     }

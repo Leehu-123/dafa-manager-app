@@ -1,4 +1,5 @@
 import { KpiDashboard } from "@/components/kpi/KpiDashboard";
+import { KpiTabs } from "@/components/kpi/KpiTabs";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
@@ -22,6 +23,7 @@ export default async function KpiPage() {
           Theo dõi và đánh giá hiệu suất làm việc
         </p>
       </div>
+      <KpiTabs userRole={session.user.role} />
       <KpiDashboard user={session.user} />
     </div>
   );

@@ -74,8 +74,9 @@ export function getRoleLabel(role: string): string {
     ADMIN: 'Quản trị viên',
     MANAGER: 'Quản lý',
     EMPLOYEE: 'Nhân viên',
+    ACCOUNTANT: 'Kế toán / HCNS',
   };
-  return labels[role.toUpperCase()] || role;
+  return labels[role?.toUpperCase()] || role;
 }
 
 export function getInitials(name: string): string {

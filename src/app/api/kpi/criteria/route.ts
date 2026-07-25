@@ -11,13 +11,30 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const departmentId = searchParams.get("departmentId");
+    const userId = searchParams.get("userId");
+
+    let whereClause: any = { companyId: session.user.companyId };
+    
+    if (departmentId && userId) {
+      whereClause.OR = [
+        { departmentId, userId },
+        { departmentId, userId: null }
+      ];
+    } else if (departmentId) {
+      whereClause.departmentId = departmentId;
+    } else if (userId) {
+      whereClause.userId = userId;
+    }
 
     const criteria = await prisma.kpiCriteria.findMany({
-      where: departmentId ? { departmentId } : undefined,
+      where: whereClause,
       include: {
         department: {
           select: { name: true },
         },
+        user: {
+          select: { fullName: true }
+        }
       },
       orderBy: { createdAt: "desc" },
     });
@@ -32,12 +49,10 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await auth();
-    if (!session?.user || session.user.role !== "ADMIN") {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { name, unit, targetValue, weightPercent, evaluationCycle, departmentId, isActive } = body;
+    const { departmentId, userId, name, description, unit, weightPercent, targetValue, evaluationCycle, comparisonType, isAuto, autoSource, isActive } = body;
 
     if (!name || !unit || targetValue === undefined || weightPercent === undefined || !evaluationCycle || !departmentId) {
       return new NextResponse("Missing required fields", { status: 400 });
@@ -45,12 +60,18 @@ export async function POST(req: Request) {
 
     const criteria = await prisma.kpiCriteria.create({
       data: {
-        name,
-        unit,
-        targetValue: Number(targetValue),
-        weightPercent: Number(weightPercent),
-        evaluationCycle,
+        companyId: session.user.companyId,
         departmentId,
+        userId: userId || null,
+        name,
+        description: description || null,
+        unit,
+        weightPercent: Number(weightPercent),
+        targetValue: Number(targetValue),
+        evaluationCycle,
+        comparisonType: comparisonType || "HIGHER_BETTER",
+        isAuto: isAuto ?? false,
+        autoSource: autoSource || null,
         isActive: isActive ?? true,
       },
     });

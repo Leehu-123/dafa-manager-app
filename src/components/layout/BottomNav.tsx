@@ -11,7 +11,7 @@ export function BottomNav() {
   const navItems = [
     { name: 'Tổng quan', href: '/', icon: LayoutDashboard },
     { name: 'Công việc', href: '/tasks', icon: CheckSquare },
-    { name: 'Báo cáo', href: '/reports', icon: FileText },
+    // { name: 'Báo cáo', href: '/reports', icon: FileText },
     { name: 'KPI', href: '/kpi', icon: BarChart3 },
     { name: 'Thêm', href: '/settings', icon: MoreHorizontal },
   ];

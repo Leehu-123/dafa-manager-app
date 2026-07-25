@@ -22,7 +22,7 @@ export function ReportTemplateManager() {
     try {
       const [tempRes, deptRes] = await Promise.all([
         fetch("/api/reports/templates"),
-        fetch("/api/organization/departments")
+        fetch("/api/departments")
       ]);
       if (tempRes.ok) setTemplates(await tempRes.json());
       if (deptRes.ok) setDepartments(await deptRes.json());

@@ -12,8 +12,11 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const departmentId = searchParams.get("departmentId");
 
+    let whereClause: any = { companyId: session.user.companyId };
+    if (departmentId) whereClause.departmentId = departmentId;
+
     const templates = await prisma.reportTemplate.findMany({
-      where: departmentId ? { departmentId } : undefined,
+      where: whereClause,
       include: {
         department: { select: { name: true } },
       },
@@ -43,6 +46,7 @@ export async function POST(req: Request) {
 
     const template = await prisma.reportTemplate.create({
       data: {
+        companyId: session.user.companyId,
         name,
         frequency,
         fieldsConfig,

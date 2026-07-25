@@ -14,6 +14,9 @@ export default function TaskDetail({ taskId }: { taskId: string }) {
   const [task, setTask] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [comment, setComment] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   const fetchTask = async () => {
     try {
@@ -28,9 +31,81 @@ export default function TaskDetail({ taskId }: { taskId: string }) {
     }
   };
 
+  const updateTaskStatus = async (newStatus: string) => {
+    if (newStatus === task.status) return;
+    setIsUpdatingStatus(true);
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        fetchTask();
+      } else {
+        alert("Lỗi khi cập nhật trạng thái");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Lỗi khi cập nhật trạng thái");
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
   useEffect(() => {
     fetchTask();
   }, [taskId]);
+
+  const handleDeleteTask = async () => {
+    if (!confirm("Bạn có chắc chắn muốn xóa công việc này?")) return;
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        router.push("/tasks");
+      } else {
+        alert("Lỗi khi xóa công việc");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Lỗi khi xóa công việc");
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      
+      const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
+      if (!uploadRes.ok) throw new Error("Upload failed");
+      const { url, name, size, type } = await uploadRes.json();
+
+      const attachRes = await fetch(`/api/tasks/${taskId}/attachments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileUrl: url, fileName: name, fileSize: size, fileType: type })
+      });
+      
+      if (attachRes.ok) {
+        fetchTask();
+      } else {
+        throw new Error("Failed to save attachment");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi tải lên file");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const submitComment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,13 +138,36 @@ export default function TaskDetail({ taskId }: { taskId: string }) {
         <div>
           <h1 className="text-3xl font-bold dafa-text">{task.title}</h1>
           <div className="flex items-center gap-3 mt-2">
-            <Badge className={cn("text-white", getStatusColor(task.status))}>{getStatusLabel(task.status)}</Badge>
+            <div className="relative inline-block">
+              <select
+                value={task.status}
+                onChange={(e) => updateTaskStatus(e.target.value)}
+                disabled={isUpdatingStatus}
+                className={cn(
+                  "appearance-none font-medium text-white px-3 py-1 pr-7 rounded-full text-xs outline-none cursor-pointer border-none ring-0 shadow-sm transition-opacity",
+                  getStatusColor(task.status),
+                  isUpdatingStatus && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                <option value="TODO" className="text-gray-900 bg-white font-medium">Chưa bắt đầu</option>
+                <option value="IN_PROGRESS" className="text-gray-900 bg-white font-medium">Đang thực hiện</option>
+                <option value="REVIEW" className="text-gray-900 bg-white font-medium">Chờ duyệt</option>
+                <option value="DONE" className="text-gray-900 bg-white font-medium">Hoàn thành</option>
+                <option value="OVERDUE" className="text-gray-900 bg-white font-medium">Trễ hạn</option>
+                <option value="CANCELLED" className="text-gray-900 bg-white font-medium">Đã hủy</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white/90">
+                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
+                  <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                </svg>
+              </div>
+            </div>
             <Badge variant="outline" className={cn("border", getPriorityColor(task.priority).replace('bg-','text-'))}>{getPriorityLabel(task.priority)}</Badge>
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="text-gray-600"><Edit className="w-4 h-4 mr-2" />Sửa</Button>
-          <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50"><Trash2 className="w-4 h-4 mr-2" />Xóa</Button>
+          <Button variant="outline" className="text-gray-600" onClick={() => router.push(`/tasks/${taskId}/edit`)}><Edit className="w-4 h-4 mr-2" />Sửa</Button>
+          <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={handleDeleteTask}><Trash2 className="w-4 h-4 mr-2" />Xóa</Button>
         </div>
       </div>
 
@@ -78,6 +176,32 @@ export default function TaskDetail({ taskId }: { taskId: string }) {
           <div className="dafa-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h3 className="text-lg font-semibold mb-4 dafa-text border-b pb-2">Mô tả công việc</h3>
             <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">{task.description || "Không có mô tả."}</div>
+          </div>
+
+          <div className="dafa-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div className="flex justify-between items-center mb-4 border-b pb-2">
+              <h3 className="text-lg font-semibold dafa-text">Tài liệu đính kèm</h3>
+              <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
+              <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                <Paperclip className="w-4 h-4 mr-2" />
+                {uploading ? "Đang tải..." : "Đính kèm"}
+              </Button>
+            </div>
+            {(!task.attachments || task.attachments.length === 0) ? (
+              <p className="text-sm dafa-muted italic">Không có tài liệu đính kèm.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {task.attachments.map((a: any) => (
+                  <a key={a.id} href={a.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <Paperclip className="w-5 h-5 text-gray-400 mr-3 shrink-0" />
+                    <div className="overflow-hidden">
+                      <p className="text-sm font-medium truncate text-dafa-text" title={a.fileName}>{a.fileName}</p>
+                      <p className="text-xs text-gray-500">{Math.round(a.fileSize / 1024)} KB • {formatDateTime(a.createdAt)}</p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="dafa-white p-6 rounded-xl shadow-sm border border-gray-100">
@@ -94,7 +218,7 @@ export default function TaskDetail({ taskId }: { taskId: string }) {
                         <span className="font-semibold text-sm">{c.author.fullName}</span>
                         <span className="text-xs dafa-muted">{formatDateTime(c.createdAt)}</span>
                       </div>
-                      <p className="text-sm text-gray-700">{c.content}</p>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">{c.content}</p>
                     </div>
                   </div>
                 ))

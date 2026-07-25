@@ -14,7 +14,7 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { name, description, unit, target, weight, cycle, departmentId, isActive } = body;
+    const { name, description, unit, targetValue, weightPercent, evaluationCycle, comparisonType, departmentId, userId, isActive } = body;
 
     const criteria = await prisma.kpiCriteria.update({
       where: { id },
@@ -22,10 +22,12 @@ export async function PATCH(
         ...(name && { name }),
         ...(description !== undefined && { description }),
         ...(unit && { unit }),
-        ...(target !== undefined && { target: Number(target) }),
-        ...(weight !== undefined && { weight: Number(weight) }),
-        ...(cycle && { cycle }),
+        ...(targetValue !== undefined && { targetValue: Number(targetValue) }),
+        ...(weightPercent !== undefined && { weightPercent: Number(weightPercent) }),
+        ...(evaluationCycle && { evaluationCycle }),
+        ...(comparisonType && { comparisonType }),
         ...(departmentId && { departmentId }),
+        userId: userId || null,
         ...(isActive !== undefined && { isActive }),
       },
     });

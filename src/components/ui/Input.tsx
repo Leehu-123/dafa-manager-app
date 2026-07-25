@@ -1,4 +1,4 @@
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useId } from 'react';
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> {
   label?: string;
@@ -9,7 +9,8 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement |
 
 export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement, InputProps>(
   ({ className = '', label, error, variant = 'text', options, id, ...props }, ref) => {
-    const inputId = id || `input-${Math.random().toString(36).substring(2, 9)}`;
+    const reactId = useId();
+    const inputId = id || reactId;
     const baseStyles = 'flex w-full rounded-md border bg-transparent px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-dafa-accent focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-colors';
     
     const errorStyles = error ? 'border-red-500 focus:ring-red-500' : 'border-dafa-border';

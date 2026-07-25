@@ -53,8 +53,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const updateData: any = {
       title,
       description,
-      departmentId,
-      branchId,
+      departmentId: departmentId || null,
+      branchId: branchId || null,
       priority,
       status,
       deadline: deadline ? new Date(deadline) : null,

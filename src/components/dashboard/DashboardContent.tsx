@@ -90,6 +90,7 @@ export function DashboardContent({ stats, recentTasks, departments, role, userNa
           icon={<LayoutDashboard className="w-5 h-5" />}
           color="blue"
           change={null}
+          href="/tasks"
         />
         <StatCard
           title="Đang thực hiện"
@@ -97,6 +98,7 @@ export function DashboardContent({ stats, recentTasks, departments, role, userNa
           icon={<Clock className="w-5 h-5" />}
           color="amber"
           change={null}
+          href="/tasks?status=IN_PROGRESS"
         />
         <StatCard
           title="Hoàn thành"
@@ -105,6 +107,7 @@ export function DashboardContent({ stats, recentTasks, departments, role, userNa
           color="green"
           subtitle={`${stats.completionRate}% tỷ lệ`}
           change={null}
+          href="/tasks?status=DONE"
         />
         <StatCard
           title="Trễ hạn"
@@ -113,6 +116,7 @@ export function DashboardContent({ stats, recentTasks, departments, role, userNa
           color="red"
           alert={stats.overdueTasks > 0}
           change={null}
+          href="/tasks?status=OVERDUE"
         />
       </div>
 
@@ -125,6 +129,7 @@ export function DashboardContent({ stats, recentTasks, departments, role, userNa
             icon={<Eye className="w-5 h-5" />}
             color="purple"
             change={null}
+            href="/tasks?status=REVIEW"
           />
           <StatCard
             title="Chưa bắt đầu"
@@ -132,6 +137,7 @@ export function DashboardContent({ stats, recentTasks, departments, role, userNa
             icon={<ListTodo className="w-5 h-5" />}
             color="slate"
             change={null}
+            href="/tasks?status=TODO"
           />
           <StatCard
             title="Nhân sự"
@@ -139,6 +145,7 @@ export function DashboardContent({ stats, recentTasks, departments, role, userNa
             icon={<Users className="w-5 h-5" />}
             color="teal"
             change={null}
+            href="/organization"
           />
         </div>
       )}
@@ -296,9 +303,10 @@ interface StatCardProps {
   subtitle?: string;
   alert?: boolean;
   change: number | null;
+  href?: string;
 }
 
-function StatCard({ title, value, icon, color, subtitle, alert }: StatCardProps) {
+function StatCard({ title, value, icon, color, subtitle, alert, href }: StatCardProps) {
   const colorClasses: Record<string, { bg: string; text: string; border: string }> = {
     blue: { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-100' },
     amber: { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-100' },
@@ -311,9 +319,9 @@ function StatCard({ title, value, icon, color, subtitle, alert }: StatCardProps)
 
   const c = colorClasses[color] || colorClasses.blue;
 
-  return (
+  const content = (
     <div
-      className={`bg-white rounded-2xl border ${c.border} shadow-sm p-5 transition-all duration-200 hover:shadow-md ${
+      className={`bg-white rounded-2xl border ${c.border} shadow-sm p-5 transition-all duration-200 hover:shadow-md ${href ? 'hover:-translate-y-1 hover:border-dafa-accent/50 cursor-pointer' : ''} ${
         alert ? 'ring-2 ring-red-200 animate-pulse' : ''
       }`}
     >
@@ -327,4 +335,6 @@ function StatCard({ title, value, icon, color, subtitle, alert }: StatCardProps)
       {subtitle && <div className={`text-xs ${c.text} mt-1 font-medium`}>{subtitle}</div>}
     </div>
   );
+
+  return href ? <Link href={href} className="block">{content}</Link> : content;
 }

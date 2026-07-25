@@ -1,4 +1,5 @@
 import { KpiCriteriaManager } from "@/components/kpi/KpiCriteriaManager";
+import { KpiTabs } from "@/components/kpi/KpiTabs";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
@@ -22,6 +23,7 @@ export default async function KpiCriteriaPage() {
           Quản lý thư viện tiêu chí đánh giá cho các phòng ban
         </p>
       </div>
+      <KpiTabs userRole={session.user.role} />
       <KpiCriteriaManager />
     </div>
   );

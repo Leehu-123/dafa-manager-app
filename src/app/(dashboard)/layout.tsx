@@ -5,6 +5,7 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { getRoleLabel } from '@/lib/utils';
+import { prisma } from '@/lib/prisma';
 
 export default async function DashboardLayout({
   children,
@@ -14,8 +15,13 @@ export default async function DashboardLayout({
   const session = await auth();
   if (!session?.user) redirect('/login');
   
+  // Fetch fresh user data to ensure name is synced with database changes
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id }
+  });
+  
   const user = {
-    name: session.user.name || 'Người dùng',
+    name: dbUser?.fullName || session.user.name || 'Người dùng',
     email: session.user.email || '',
     role: session.user.role || 'EMPLOYEE',
     roleLabel: getRoleLabel(session.user.role || 'EMPLOYEE'),

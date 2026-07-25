@@ -6,24 +6,14 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------------------------------------------------------
-// ENUMS
+// ENUMS (DAFA MANAGER)
 // ---------------------------------------------------------
-
-enum Role {
-  ADMIN
-  MANAGER
-  EMPLOYEE
-}
-
-enum UserStatus {
-  ACTIVE
-  INACTIVE
-}
 
 enum TaskPriority {
   LOW
@@ -74,12 +64,175 @@ enum NotificationType {
   SYSTEM
 }
 
+enum KpiStatus {
+  DRAFT
+  APPROVED
+}
+
 // ---------------------------------------------------------
-// MODELS
+// MODELS (CORE-API + DAFA MANAGER)
+// ---------------------------------------------------------
+
+model Company {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  code      String   @unique
+  taxCode   String?  @map("tax_code")
+  address   String?
+  phone     String?
+  email     String?
+  isActive  Boolean  @default(true) @map("is_active")
+  telegramBotToken String? @map("telegram_bot_token")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  users      User[]
+  roles      Role[]
+  auditLogs  AuditLog[]
+  branches   Branch[]
+
+  @@map("companies")
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  companyId    String    @map("company_id") @db.Uuid
+  email        String?   @unique
+  username     String?   @unique
+  passwordHash String    @map("password_hash")
+  fullName     String    @map("full_name")
+  phone        String?
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+  createdById  String?   @map("created_by_id") @db.Uuid
+  updatedById  String?   @map("updated_by_id") @db.Uuid
+  teamId       String?   @map("team_id") @db.Uuid
+  avatar       String?
+  telegramChatId String? @map("telegram_chat_id")
+
+  // DAFA Manager specific fields
+  jobTitle        String?
+  joinedDate      DateTime?
+  primaryBranchId String?    @map("primary_branch_id") @db.Uuid
+  sortOrder       Int        @default(0) @map("sort_order")
+
+  // Relations
+  company      Company      @relation(fields: [companyId], references: [id])
+  createdBy    User?        @relation("UserCreatedBy", fields: [createdById], references: [id])
+  updatedBy    User?        @relation("UserUpdatedBy", fields: [updatedById], references: [id])
+  createdUsers User[]       @relation("UserCreatedBy")
+  updatedUsers User[]       @relation("UserUpdatedBy")
+  userRoles    UserRole[]
+  auditLogs    AuditLog[]
+
+  // DAFA Manager relations
+  primaryBranch    Branch?            @relation(fields: [primaryBranchId], references: [id], onDelete: SetNull)
+  departmentMember DepartmentMember[]
+  createdTasks     Task[]             @relation("CreatedTasks")
+  assignedTasks    TaskAssignee[]
+  taskComments     TaskComment[]
+  taskAttachments  TaskAttachment[]
+  taskHistories    TaskHistory[]
+  submittedReports WorkReport[]       @relation("SubmittedReports")
+  reviewedReports  WorkReport[]       @relation("ReviewedReports")
+  kpiRecords       KpiRecord[]
+  kpiCriteria      KpiCriteria[]
+  notifications    Notification[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String?  @map("company_id") @db.Uuid
+  name        String
+  description String?
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  company         Company?         @relation(fields: [companyId], references: [id])
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@unique([companyId, name])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+  role Role @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  id           String   @id @default(uuid()) @db.Uuid
+  roleId       String   @map("role_id") @db.Uuid
+  permissionId String   @map("permission_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String?  @map("company_id") @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  action    String
+  entity    String
+  entityId  String?  @map("entity_id")
+  oldValue  Json?    @map("old_value")
+  newValue  Json?    @map("new_value")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  company Company? @relation(fields: [companyId], references: [id])
+  user    User?    @relation(fields: [userId], references: [id])
+
+  @@index([entity])
+  @@index([action])
+  @@index([companyId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------
+// DAFA MANAGER SPECIFIC MODELS (With companyId added)
 // ---------------------------------------------------------
 
 model Branch {
-  id        String   @id @default(uuid())
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String   @map("company_id") @db.Uuid
   name      String
   code      String   @unique
   city      String?
@@ -87,23 +240,27 @@ model Branch {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  sortOrder Int      @default(0) @map("sort_order")
 
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
   departments Department[]
   users       User[]
   tasks       Task[]
 
   @@index([code])
+  @@index([companyId])
 }
 
 model Department {
-  id          String   @id @default(uuid())
-  branchId    String
+  id          String   @id @default(uuid()) @db.Uuid
+  branchId    String   @db.Uuid
   name        String
   code        String   @unique
   description String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  sortOrder   Int      @default(0) @map("sort_order")
 
   branch          Branch             @relation(fields: [branchId], references: [id], onDelete: Cascade)
   members         DepartmentMember[]
@@ -116,41 +273,10 @@ model Department {
   @@index([code])
 }
 
-model User {
-  id              String     @id @default(uuid())
-  email           String     @unique
-  passwordHash    String
-  fullName        String
-  phone           String?
-  jobTitle        String?
-  avatarUrl       String?
-  role            Role       @default(EMPLOYEE)
-  primaryBranchId String?
-  joinedDate      DateTime?
-  status          UserStatus @default(ACTIVE)
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-
-  primaryBranch    Branch?            @relation(fields: [primaryBranchId], references: [id], onDelete: SetNull)
-  departmentMember DepartmentMember[]
-  createdTasks     Task[]             @relation("CreatedTasks")
-  assignedTasks    TaskAssignee[]
-  taskComments     TaskComment[]
-  taskAttachments  TaskAttachment[]
-  taskHistories    TaskHistory[]
-  submittedReports WorkReport[]       @relation("SubmittedReports")
-  reviewedReports  WorkReport[]       @relation("ReviewedReports")
-  kpiRecords       KpiRecord[]
-  notifications    Notification[]
-
-  @@index([email])
-  @@index([primaryBranchId])
-}
-
 model DepartmentMember {
-  id           String   @id @default(uuid())
-  departmentId String
-  userId       String
+  id           String   @id @default(uuid()) @db.Uuid
+  departmentId String   @db.Uuid
+  userId       String   @db.Uuid
   isHead       Boolean  @default(false)
   joinedAt     DateTime @default(now())
 
@@ -162,19 +288,20 @@ model DepartmentMember {
 }
 
 model Task {
-  id               String          @id @default(uuid())
+  id               String          @id @default(uuid()) @db.Uuid
+  companyId        String          @map("company_id") @db.Uuid
   title            String
   description      String?
-  createdById      String
-  departmentId     String?
-  branchId         String?
+  createdById      String          @db.Uuid
+  departmentId     String?         @db.Uuid
+  branchId         String?         @db.Uuid
   priority         TaskPriority    @default(MEDIUM)
   status           TaskStatus      @default(TODO)
   deadline         DateTime?
   isRecurring      Boolean         @default(false)
   recurrenceType   RecurrenceType?
   recurrenceConfig Json?
-  parentTaskId     String?
+  parentTaskId     String?         @db.Uuid
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
@@ -188,6 +315,7 @@ model Task {
   attachments TaskAttachment[]
   histories   TaskHistory[]
 
+  @@index([companyId])
   @@index([createdById])
   @@index([departmentId])
   @@index([branchId])
@@ -195,9 +323,9 @@ model Task {
 }
 
 model TaskAssignee {
-  id         String   @id @default(uuid())
-  taskId     String
-  userId     String
+  id         String   @id @default(uuid()) @db.Uuid
+  taskId     String   @db.Uuid
+  userId     String   @db.Uuid
   assignedAt DateTime @default(now())
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
@@ -208,9 +336,9 @@ model TaskAssignee {
 }
 
 model TaskComment {
-  id        String   @id @default(uuid())
-  taskId    String
-  authorId  String
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @db.Uuid
+  authorId  String   @db.Uuid
   content   String
   createdAt DateTime @default(now())
 
@@ -222,9 +350,9 @@ model TaskComment {
 }
 
 model TaskAttachment {
-  id           String   @id @default(uuid())
-  taskId       String
-  uploadedById String
+  id           String   @id @default(uuid()) @db.Uuid
+  taskId       String   @db.Uuid
+  uploadedById String   @db.Uuid
   fileName     String
   fileUrl      String
   fileType     String?
@@ -239,9 +367,9 @@ model TaskAttachment {
 }
 
 model TaskHistory {
-  id           String   @id @default(uuid())
-  taskId       String
-  changedById  String
+  id           String   @id @default(uuid()) @db.Uuid
+  taskId       String   @db.Uuid
+  changedById  String   @db.Uuid
   fieldChanged String
   oldValue     String?
   newValue     String?
@@ -254,8 +382,9 @@ model TaskHistory {
 }
 
 model ReportTemplate {
-  id           String          @id @default(uuid())
-  departmentId String?
+  id           String          @id @default(uuid()) @db.Uuid
+  companyId    String          @map("company_id") @db.Uuid
+  departmentId String?         @db.Uuid
   name         String
   fieldsConfig Json
   frequency    ReportFrequency
@@ -266,19 +395,21 @@ model ReportTemplate {
   department  Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   workReports WorkReport[]
 
+  @@index([companyId])
   @@index([departmentId])
 }
 
 model WorkReport {
-  id              String       @id @default(uuid())
-  templateId      String
-  submittedById   String
-  departmentId    String
+  id              String       @id @default(uuid()) @db.Uuid
+  companyId       String       @map("company_id") @db.Uuid
+  templateId      String       @db.Uuid
+  submittedById   String       @db.Uuid
+  departmentId    String       @db.Uuid
   reportDate      DateTime
   reportData      Json
   status          ReportStatus @default(DRAFT)
   managerFeedback String?
-  reviewedById    String?
+  reviewedById    String?      @db.Uuid
   submittedAt     DateTime?
   reviewedAt      DateTime?
   createdAt       DateTime     @default(now())
@@ -288,19 +419,24 @@ model WorkReport {
   department  Department     @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   reviewedBy  User?          @relation("ReviewedReports", fields: [reviewedById], references: [id], onDelete: SetNull)
 
+  @@index([companyId])
   @@index([templateId])
   @@index([submittedById])
   @@index([departmentId])
 }
 
 model KpiCriteria {
-  id              String          @id @default(uuid())
-  departmentId    String
+  id              String          @id @default(uuid()) @db.Uuid
+  companyId       String          @map("company_id") @db.Uuid
+  departmentId    String          @db.Uuid
+  userId          String?         @db.Uuid
   name            String
+  description     String?         @db.Text
   unit            String
   weightPercent   Float
   targetValue     Float
   evaluationCycle EvaluationCycle
+  comparisonType  String          @default("HIGHER_BETTER")
   isAuto          Boolean         @default(false)
   autoSource      String?
   isActive        Boolean         @default(true)
@@ -308,32 +444,38 @@ model KpiCriteria {
   updatedAt       DateTime        @updatedAt
 
   department Department  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  user       User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
   kpiRecords KpiRecord[]
 
+  @@index([companyId])
   @@index([departmentId])
 }
 
 model KpiRecord {
-  id          String   @id @default(uuid())
-  criteriaId  String
-  userId      String
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @map("company_id") @db.Uuid
+  criteriaId  String   @db.Uuid
+  userId      String   @db.Uuid
   actualValue Float
   score       Float
   periodStart DateTime
   periodEnd   DateTime
   notes       String?
+  status      KpiStatus @default(DRAFT)
   recordedAt  DateTime @default(now())
 
   criteria KpiCriteria @relation(fields: [criteriaId], references: [id], onDelete: Cascade)
   user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([companyId])
   @@index([criteriaId])
   @@index([userId])
 }
 
 model Notification {
-  id        String           @id @default(uuid())
-  userId    String
+  id        String           @id @default(uuid()) @db.Uuid
+  companyId String           @map("company_id") @db.Uuid
+  userId    String           @db.Uuid
   title     String
   message   String
   type      NotificationType
@@ -343,5 +485,6 @@ model Notification {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([companyId])
   @@index([userId])
 }

@@ -8,7 +8,28 @@ export default async function DashboardPage() {
   if (!session?.user) redirect('/login');
 
   const userId = session.user.id;
+  const companyId = session.user.companyId;
   const role = session.user.role;
+
+  let roleWhere: any = { companyId };
+  if (role === 'MANAGER') {
+    const managerDepts = await prisma.departmentMember.findMany({
+      where: { userId },
+      select: { departmentId: true }
+    });
+    const deptIds = managerDepts.map(d => d.departmentId);
+    if (deptIds.length > 0) {
+      roleWhere.OR = [
+        { departmentId: { in: deptIds } },
+        { assignees: { some: { user: { departmentMember: { some: { departmentId: { in: deptIds } } } } } } },
+        { createdById: userId }
+      ];
+    } else {
+      roleWhere.assignees = { some: { userId } };
+    }
+  } else if (role === 'EMPLOYEE') {
+    roleWhere.assignees = { some: { userId } };
+  }
 
   // Fetch dashboard stats
   const [
@@ -23,79 +44,18 @@ export default async function DashboardPage() {
     userCount,
   ] = await Promise.all([
     // Total tasks visible to user
-    prisma.task.count({
-      where:
-        role === 'ADMIN'
-          ? {}
-          : role === 'MANAGER'
-          ? {
-              department: {
-                members: { some: { userId, isHead: true } },
-              },
-            }
-          : { assignees: { some: { userId } } },
-    }),
+    prisma.task.count({ where: roleWhere }),
     // By status
-    prisma.task.count({
-      where: {
-        status: 'TODO',
-        ...(role === 'ADMIN'
-          ? {}
-          : role === 'MANAGER'
-          ? { department: { members: { some: { userId, isHead: true } } } }
-          : { assignees: { some: { userId } } }),
-      },
-    }),
-    prisma.task.count({
-      where: {
-        status: 'IN_PROGRESS',
-        ...(role === 'ADMIN'
-          ? {}
-          : role === 'MANAGER'
-          ? { department: { members: { some: { userId, isHead: true } } } }
-          : { assignees: { some: { userId } } }),
-      },
-    }),
-    prisma.task.count({
-      where: {
-        status: 'DONE',
-        ...(role === 'ADMIN'
-          ? {}
-          : role === 'MANAGER'
-          ? { department: { members: { some: { userId, isHead: true } } } }
-          : { assignees: { some: { userId } } }),
-      },
-    }),
-    prisma.task.count({
-      where: {
-        status: 'OVERDUE',
-        ...(role === 'ADMIN'
-          ? {}
-          : role === 'MANAGER'
-          ? { department: { members: { some: { userId, isHead: true } } } }
-          : { assignees: { some: { userId } } }),
-      },
-    }),
-    prisma.task.count({
-      where: {
-        status: 'REVIEW',
-        ...(role === 'ADMIN'
-          ? {}
-          : role === 'MANAGER'
-          ? { department: { members: { some: { userId, isHead: true } } } }
-          : { assignees: { some: { userId } } }),
-      },
-    }),
+    prisma.task.count({ where: { ...roleWhere, status: 'TODO' } }),
+    prisma.task.count({ where: { ...roleWhere, status: 'IN_PROGRESS' } }),
+    prisma.task.count({ where: { ...roleWhere, status: 'DONE' } }),
+    prisma.task.count({ where: { ...roleWhere, status: 'OVERDUE' } }),
+    prisma.task.count({ where: { ...roleWhere, status: 'REVIEW' } }),
     // Recent tasks
     prisma.task.findMany({
-      where:
-        role === 'ADMIN'
-          ? {}
-          : role === 'MANAGER'
-          ? { department: { members: { some: { userId, isHead: true } } } }
-          : { assignees: { some: { userId } } },
+      where: roleWhere,
       include: {
-        assignees: { include: { user: { select: { fullName: true, avatarUrl: true } } } },
+        assignees: { include: { user: { select: { fullName: true, avatar: true } } } },
         department: { select: { name: true, code: true } },
         createdBy: { select: { fullName: true } },
       },
@@ -105,7 +65,7 @@ export default async function DashboardPage() {
     // Departments with task counts (admin only)
     role === 'ADMIN'
       ? prisma.department.findMany({
-          where: { isActive: true },
+          where: { isActive: true, branch: { companyId } },
           include: {
             _count: { select: { tasks: true, members: true } },
             branch: { select: { name: true } },
@@ -114,20 +74,16 @@ export default async function DashboardPage() {
       : Promise.resolve([]),
     // User count
     role === 'ADMIN'
-      ? prisma.user.count({ where: { status: 'ACTIVE' } })
+      ? prisma.user.count({ where: { isActive: true, companyId } })
       : Promise.resolve(0),
   ]);
 
   // Calculate overdue from deadline
   const overdueByDeadline = await prisma.task.count({
     where: {
+      ...roleWhere,
       deadline: { lt: new Date() },
       status: { notIn: ['DONE', 'OVERDUE'] },
-      ...(role === 'ADMIN'
-        ? {}
-        : role === 'MANAGER'
-        ? { department: { members: { some: { userId, isHead: true } } } }
-        : { assignees: { some: { userId } } }),
     },
   });
 

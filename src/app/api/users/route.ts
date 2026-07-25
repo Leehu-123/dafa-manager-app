@@ -12,8 +12,8 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const departmentId = searchParams.get("departmentId");
     
-    const where: any = { status: "ACTIVE" }; // Assuming User model has status
-    if (departmentId) where.departmentId = departmentId;
+    const where: any = { isActive: true, companyId: session.user.companyId };
+    if (departmentId) where.departmentMember = { some: { departmentId } };
 
     const users = await prisma.user.findMany({
       where,
@@ -21,8 +21,8 @@ export async function GET(req: NextRequest) {
         id: true,
         fullName: true,
         email: true,
-        role: true,
-        avatarUrl: true,
+        userRoles: { include: { role: { select: { name: true } } } },
+        avatar: true,
       },
       orderBy: { fullName: "asc" },
     });

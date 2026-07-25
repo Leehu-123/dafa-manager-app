@@ -16,7 +16,7 @@ export async function GET(req: Request) {
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
 
-    let whereClause: any = {};
+    let whereClause: any = { companyId: session.user.companyId };
     if (status) whereClause.status = status;
     if (submittedById) whereClause.submittedById = submittedById;
     if (departmentId) whereClause.departmentId = departmentId;
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     
     let resolvedDepartmentId = departmentId;
     if (!resolvedDepartmentId) {
-      const template = await prisma.reportTemplate.findUnique({ where: { id: templateId } });
+      const template = await prisma.reportTemplate.findUnique({ where: { id: templateId, companyId: session.user.companyId } });
       if (template) {
         resolvedDepartmentId = template.departmentId;
       }
@@ -74,6 +74,7 @@ export async function POST(req: Request) {
 
     const report = await prisma.workReport.create({
       data: {
+        companyId: session.user.companyId,
         templateId,
         departmentId: resolvedDepartmentId || "default-dept", // Ensure your schema accepts this or it's resolved properly
         submittedById: session.user.id,

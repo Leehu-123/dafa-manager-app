@@ -20,6 +20,8 @@ export default function TaskListPage() {
 
   const [statusFilter, setStatusFilter] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("");
+  const [departments, setDepartments] = useState<any[]>([]);
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -30,6 +32,7 @@ export default function TaskListPage() {
         ...(searchTerm && { search: searchTerm }),
         ...(statusFilter && { status: statusFilter }),
         ...(priorityFilter && { priority: priorityFilter }),
+        ...(departmentFilter && { departmentId: departmentFilter }),
       });
       const res = await fetch(`/api/tasks?${query.toString()}`);
       if (res.ok) {
@@ -46,7 +49,11 @@ export default function TaskListPage() {
 
   useEffect(() => {
     fetchTasks();
-  }, [page, statusFilter, priorityFilter]);
+  }, [page, statusFilter, priorityFilter, departmentFilter]);
+
+  useEffect(() => {
+    fetch("/api/departments").then(r => r.json()).then(setDepartments);
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,6 +97,17 @@ export default function TaskListPage() {
             <option value="REVIEW">Chờ duyệt</option>
             <option value="DONE">Hoàn thành</option>
             <option value="OVERDUE">Quá hạn</option>
+          </select>
+          
+          <select 
+            className="dafa-border rounded-md px-3 py-2 text-sm focus:outline-none"
+            value={departmentFilter}
+            onChange={(e) => setDepartmentFilter(e.target.value)}
+          >
+            <option value="">Tất cả phòng ban</option>
+            {departments.map(d => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
           </select>
           
           <select 

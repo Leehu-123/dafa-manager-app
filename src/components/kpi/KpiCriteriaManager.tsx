@@ -11,23 +11,28 @@ import { Plus, Edit2, Trash2 } from "lucide-react";
 export function KpiCriteriaManager() {
   const [criteria, setCriteria] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDept, setSelectedDept] = useState("");
+  const [selectedCycle, setSelectedCycle] = useState("ALL");
+  const [selectedEmpFilter, setSelectedEmpFilter] = useState("");
   const [formData, setFormData] = useState({
-    id: "", name: "", description: "", unit: "", target: 0, weight: 0, cycle: "MONTHLY", departmentId: "", isActive: true
+    id: "", name: "", description: "", unit: "", target: 0, weight: 0, cycle: "MONTHLY", comparisonType: "HIGHER_BETTER", departmentId: "", userId: "", isActive: true
   });
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [critRes, deptRes] = await Promise.all([
+      const [critRes, deptRes, empRes] = await Promise.all([
         fetch(`/api/kpi/criteria${selectedDept ? `?departmentId=${selectedDept}` : ''}`),
-        fetch("/api/organization/departments")
+        fetch("/api/departments"),
+        fetch("/api/organization/employees")
       ]);
       
       if (critRes.ok) setCriteria(await critRes.json());
       if (deptRes.ok) setDepartments(await deptRes.json());
+      if (empRes.ok) setEmployees(await empRes.json());
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -45,10 +50,23 @@ export function KpiCriteriaManager() {
     const method = formData.id ? "PATCH" : "POST";
     
     try {
+      const payload = {
+        departmentId: formData.departmentId,
+        userId: formData.userId || null,
+        name: formData.name,
+        description: formData.description,
+        unit: formData.unit,
+        targetValue: formData.target,
+        weightPercent: formData.weight,
+        evaluationCycle: formData.cycle,
+        comparisonType: formData.comparisonType,
+        isActive: formData.isActive
+      };
+      
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         setIsModalOpen(false);
@@ -71,9 +89,21 @@ export function KpiCriteriaManager() {
 
   const openModal = (item?: any) => {
     if (item) {
-      setFormData({ ...item });
+      setFormData({
+        id: item.id,
+        name: item.name,
+        description: item.description || "",
+        unit: item.unit,
+        target: item.targetValue,
+        weight: item.weightPercent,
+        cycle: item.evaluationCycle,
+        comparisonType: item.comparisonType || "HIGHER_BETTER",
+        departmentId: item.departmentId,
+        userId: item.userId || "",
+        isActive: item.isActive
+      });
     } else {
-      setFormData({ id: "", name: "", description: "", unit: "", target: 0, weight: 0, cycle: "MONTHLY", departmentId: "", isActive: true });
+      setFormData({ id: "", name: "", description: "", unit: "", target: 0, weight: 0, cycle: "MONTHLY", comparisonType: "HIGHER_BETTER", departmentId: "", userId: "", isActive: true });
     }
     setIsModalOpen(true);
   };
@@ -81,16 +111,43 @@ export function KpiCriteriaManager() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex justify-between items-center">
-        <select 
-          className="border dafa-border rounded-md px-3 py-2 text-sm bg-white"
-          value={selectedDept}
-          onChange={(e) => setSelectedDept(e.target.value)}
-        >
-          <option value="">Tất cả phòng ban</option>
-          {departments.map(d => (
-            <option key={d.id} value={d.id}>{d.name}</option>
-          ))}
-        </select>
+        <div className="flex gap-2">
+          <select 
+            className="border dafa-border rounded-md px-3 py-2 text-sm bg-white"
+            value={selectedDept}
+            onChange={(e) => { setSelectedDept(e.target.value); setSelectedEmpFilter(""); }}
+          >
+            <option value="">Tất cả phòng ban</option>
+            {departments.map(d => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
+
+          <select 
+            className="border dafa-border rounded-md px-3 py-2 text-sm bg-white"
+            value={selectedEmpFilter}
+            onChange={(e) => setSelectedEmpFilter(e.target.value)}
+          >
+            <option value="">Tất cả nhân viên</option>
+            <option value="GENERAL">Tiêu chí chung (Không gán cá nhân)</option>
+            {employees
+              .filter(emp => !selectedDept || emp.departmentMember?.some((dm: any) => dm.departmentId === selectedDept))
+              .map(emp => (
+              <option key={emp.id} value={emp.id}>{emp.fullName}</option>
+            ))}
+          </select>
+
+          <select 
+            className="border dafa-border rounded-md px-3 py-2 text-sm bg-white"
+            value={selectedCycle}
+            onChange={(e) => setSelectedCycle(e.target.value)}
+          >
+            <option value="ALL">Tất cả chu kỳ</option>
+            <option value="WEEKLY">Hàng tuần</option>
+            <option value="MONTHLY">Hàng tháng</option>
+            <option value="QUARTERLY">Hàng quý</option>
+          </select>
+        </div>
         
         <Button onClick={() => openModal()} className="bg-[#A14F39] hover:bg-[#8a3f2d] text-white">
           <Plus className="w-4 h-4 mr-2" /> Thêm Tiêu Chí
@@ -113,14 +170,28 @@ export function KpiCriteriaManager() {
               </tr>
             </thead>
             <tbody>
-              {criteria.map((item) => (
+              {criteria
+                .filter(item => selectedCycle === "ALL" || item.evaluationCycle === selectedCycle)
+                .filter(item => {
+                  if (selectedEmpFilter === "GENERAL") return item.userId === null;
+                  if (selectedEmpFilter) return item.userId === selectedEmpFilter || item.userId === null;
+                  return true;
+                })
+                .map((item) => (
                 <tr key={item.id} className="border-b dafa-border bg-white hover:bg-gray-50">
-                  <td className="px-6 py-4 font-medium dafa-text">{item.name}</td>
+                  <td className="px-6 py-4 font-medium dafa-text">
+                    {item.name}
+                    {item.user && (
+                      <span className="ml-2 inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                        {item.user.fullName}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 dafa-muted">{item.department?.name}</td>
-                  <td className="px-6 py-4 text-right font-medium">{item.target}</td>
+                  <td className="px-6 py-4 text-right font-medium">{item.targetValue}</td>
                   <td className="px-6 py-4 dafa-muted">{item.unit}</td>
-                  <td className="px-6 py-4 text-right">{item.weight}</td>
-                  <td className="px-6 py-4 dafa-muted">{item.cycle === "MONTHLY" ? "Hàng tháng" : item.cycle === "WEEKLY" ? "Hàng tuần" : "Hàng quý"}</td>
+                  <td className="px-6 py-4 text-right">{item.weightPercent}</td>
+                  <td className="px-6 py-4 dafa-muted">{item.evaluationCycle === "MONTHLY" ? "Hàng tháng" : item.evaluationCycle === "WEEKLY" ? "Hàng tuần" : "Hàng quý"}</td>
                   <td className="px-6 py-4 text-center">
                     <Badge variant={item.isActive ? "default" : "secondary"} className={item.isActive ? "bg-green-100 text-green-800" : ""}>
                       {item.isActive ? "Hoạt động" : "Tạm khóa"}
@@ -159,12 +230,30 @@ export function KpiCriteriaManager() {
                 <option value="QUARTERLY">Hàng quý</option>
               </select>
             </div>
-            <div className="flex flex-col gap-1 col-span-2">
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium dafa-text">Loại tiêu chí</label>
+              <select className="border dafa-border rounded-md px-3 py-2 text-sm bg-white" value={formData.comparisonType} onChange={(e) => setFormData({...formData, comparisonType: e.target.value})}>
+                <option value="HIGHER_BETTER">Càng cao càng tốt</option>
+                <option value="LOWER_BETTER">Càng thấp càng tốt</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
               <label className="text-sm font-medium dafa-text">Phòng ban</label>
-              <select required className="border dafa-border rounded-md px-3 py-2 text-sm bg-white" value={formData.departmentId} onChange={(e) => setFormData({...formData, departmentId: e.target.value})}>
+              <select required className="border dafa-border rounded-md px-3 py-2 text-sm bg-white" value={formData.departmentId} onChange={(e) => setFormData({...formData, departmentId: e.target.value, userId: ""})}>
                 <option value="">Chọn phòng ban</option>
                 {departments.map(d => (
                   <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium dafa-text">Áp dụng cho (Tuỳ chọn)</label>
+              <select className="border dafa-border rounded-md px-3 py-2 text-sm bg-white" value={formData.userId} onChange={(e) => setFormData({...formData, userId: e.target.value})}>
+                <option value="">Tất cả nhân viên trong phòng</option>
+                {employees
+                  .filter(emp => !formData.departmentId || emp.departmentMember?.some((dm: any) => dm.departmentId === formData.departmentId))
+                  .map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.fullName}</option>
                 ))}
               </select>
             </div>

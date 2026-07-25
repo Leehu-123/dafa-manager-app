@@ -17,7 +17,7 @@ export async function GET(
       where: { id },
       include: {
         template: true,
-        submittedBy: { select: { fullName: true, role: true } },
+        submittedBy: { select: { fullName: true, userRoles: { include: { role: { select: { name: true } } } } } },
         reviewedBy: { select: { fullName: true } },
       },
     });

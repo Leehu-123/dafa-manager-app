@@ -10,6 +10,7 @@ export async function GET(req: Request) {
     }
 
     const branches = await prisma.branch.findMany({
+      where: { companyId: session.user.companyId },
       include: {
         departments: {
           select: { id: true, name: true }
@@ -18,9 +19,18 @@ export async function GET(req: Request) {
       orderBy: { name: "asc" }
     });
 
-    return NextResponse.json(branches);
-  } catch (error) {
+    const sortOrders: any = await prisma.$queryRawUnsafe(`SELECT id, sort_order FROM "Branch" WHERE "company_id" = $1::uuid`, session.user.companyId);
+    const sortOrderMap = new Map(sortOrders.map((s: any) => [s.id, s.sort_order]));
+
+    const formattedBranches = branches.map(branch => ({
+      ...branch,
+      sortOrder: sortOrderMap.get(branch.id) || 0
+    }));
+
+    return NextResponse.json(formattedBranches);
+  } catch (error: any) {
     console.error("[BRANCHES_GET]", error);
+    require('fs').appendFileSync('error_branch.log', `[BRANCHES_GET] ${error?.message || error}\n`);
     return new NextResponse("Internal Error", { status: 500 });
   }
 }
@@ -41,6 +51,7 @@ export async function POST(req: Request) {
 
     const branch = await prisma.branch.create({
       data: {
+        companyId: session.user.companyId,
         name, code, address, city, isActive: isActive ?? true
       }
     });
