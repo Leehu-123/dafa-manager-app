@@ -20,15 +20,15 @@ export function KpiPendingApprovalList({ currentUser }: { currentUser: any }) {
   const [employees, setEmployees] = useState<any[]>([]);
   const [processingKey, setProcessingKey] = useState<string | null>(null);
 
-  const empList = Array.isArray(employees) ? employees : ((employees as any)?.items || []);
-  const deptList = Array.isArray(departments) ? departments : ((departments as any)?.items || []);
+  const empList = Array.isArray(employees) ? employees : ((employees as any)?.data || (employees as any)?.items || []);
+  const deptList = Array.isArray(departments) ? departments : ((departments as any)?.data || (departments as any)?.items || []);
 
   const currentUserId = currentUser?.id || currentUser?.sub;
   const currentUserFull = empList.find((e: any) => e.id === currentUserId) || currentUser;
 
   const userRoleStr = (currentUserFull?.role || currentUser?.role || (Array.isArray(currentUser?.roles) ? currentUser.roles[0] : "") || "").toUpperCase();
   const isAdmin = ["ADMIN", "OWNER"].includes(userRoleStr);
-  const isFullDeptAccess = ["ADMIN", "OWNER", "ACCOUNTANT"].includes(userRoleStr);
+  const isFullDeptAccess = ["ADMIN", "OWNER", "ACCOUNTANT", "KETOAN"].includes(userRoleStr);
   const managerDeptIds = currentUserFull?.departmentMember?.map((dm: any) => dm.departmentId) || [];
 
   const visibleDepartments = isFullDeptAccess
@@ -44,11 +44,11 @@ export function KpiPendingApprovalList({ currentUser }: { currentUser: any }) {
   useEffect(() => {
     fetch("/api/departments")
       .then((r) => r.json())
-      .then((data) => setDepartments(Array.isArray(data) ? data : (data?.items || [])))
+      .then((data) => setDepartments(Array.isArray(data) ? data : (data?.data || data?.items || [])))
       .catch(console.error);
     fetch("/api/organization/employees")
       .then((r) => r.json())
-      .then((data) => setEmployees(Array.isArray(data) ? data : (data?.items || [])))
+      .then((data) => setEmployees(Array.isArray(data) ? data : (data?.data || data?.items || [])))
       .catch(console.error);
   }, []);
 

@@ -24,15 +24,15 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
   const [actuals, setActuals] = useState<Record<string, string | number>>({});
   const [loading, setLoading] = useState(false);
 
-  const empList = Array.isArray(employees) ? employees : ((employees as any)?.items || []);
-  const deptList = Array.isArray(departments) ? departments : ((departments as any)?.items || []);
+  const empList = Array.isArray(employees) ? employees : ((employees as any)?.data || (employees as any)?.items || []);
+  const deptList = Array.isArray(departments) ? departments : ((departments as any)?.data || (departments as any)?.items || []);
 
   const currentUserId = currentUser?.id || currentUser?.sub;
   const currentUserFull = empList.find((e) => e.id === currentUserId) || currentUser;
 
   const userRoleStr = (currentUserFull?.role || currentUser?.role || (Array.isArray(currentUser?.roles) ? currentUser.roles[0] : '') || '').toUpperCase();
   const isAdmin = ["ADMIN", "OWNER"].includes(userRoleStr);
-  const isFullDeptAccess = ["ADMIN", "OWNER", "ACCOUNTANT"].includes(userRoleStr);
+  const isFullDeptAccess = ["ADMIN", "OWNER", "ACCOUNTANT", "KETOAN"].includes(userRoleStr);
   const managerDeptIds = currentUserFull?.departmentMember?.map((dm: any) => dm.departmentId) || [];
 
   const visibleDepartments = isFullDeptAccess
@@ -56,14 +56,14 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
       const res = await fetch("/api/departments");
       if (res.ok) {
         const data = await res.json();
-        setDepartments(Array.isArray(data) ? data : (data?.items || []));
+        setDepartments(Array.isArray(data) ? data : (data?.data || data?.items || []));
       }
     };
     const fetchEmployees = async () => {
       const res = await fetch("/api/organization/employees");
       if (res.ok) {
         const data = await res.json();
-        setEmployees(Array.isArray(data) ? data : (data?.items || []));
+        setEmployees(Array.isArray(data) ? data : (data?.data || data?.items || []));
       }
     };
     fetchDepartments();
@@ -91,7 +91,7 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
       });
     }
 
-    if (userRoleStr === "ACCOUNTANT") {
+    if (userRoleStr === "ACCOUNTANT" || userRoleStr === "KETOAN") {
       return list.filter((emp) => {
         const empDepts = emp.departmentMember?.map((dm: any) => dm.departmentId) || [];
         if (empDepts.length === 0) return true;

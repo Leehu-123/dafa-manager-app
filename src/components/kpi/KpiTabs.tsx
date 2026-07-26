@@ -16,7 +16,7 @@ export function KpiTabs({ userRole }: { userRole?: string }) {
     tabs.push({ name: "Duyệt Phiếu KPI", href: "/kpi/approval" });
   }
   
-  if (normRole === "ADMIN" || normRole === "OWNER" || normRole === "ACCOUNTANT") {
+  if (normRole === "ADMIN" || normRole === "OWNER" || normRole === "ACCOUNTANT" || normRole === "KETOAN") {
     tabs.push({ name: "Cài đặt tiêu chí", href: "/kpi/criteria" });
   }
 

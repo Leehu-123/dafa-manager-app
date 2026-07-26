@@ -22,14 +22,14 @@ export function KpiDashboard({ user }: { user: any }) {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("month");
 
-  const empList = Array.isArray(employees) ? employees : ((employees as any)?.items || []);
-  const deptList = Array.isArray(departments) ? departments : ((departments as any)?.items || []);
+  const empList = Array.isArray(employees) ? employees : ((employees as any)?.data || (employees as any)?.items || []);
+  const deptList = Array.isArray(departments) ? departments : ((departments as any)?.data || (departments as any)?.items || []);
 
   const currentUserId = user?.id || user?.sub;
   const currentUserFull = empList.find((e: any) => e.id === currentUserId) || user;
 
   const userRoleStr = (currentUserFull?.role || user?.role || (Array.isArray(user?.roles) ? user.roles[0] : '') || '').toUpperCase();
-  const isFullDeptAccess = ["ADMIN", "OWNER", "ACCOUNTANT"].includes(userRoleStr);
+  const isFullDeptAccess = ["ADMIN", "OWNER", "ACCOUNTANT", "KETOAN"].includes(userRoleStr);
   const managerDeptIds = currentUserFull?.departmentMember?.map((dm: any) => dm.departmentId) || [];
 
   const visibleDepartments = isFullDeptAccess
@@ -51,11 +51,11 @@ export function KpiDashboard({ user }: { user: any }) {
         ]);
         if (deptRes.ok) {
           const dData = await deptRes.json();
-          setDepartments(Array.isArray(dData) ? dData : (dData?.items || []));
+          setDepartments(Array.isArray(dData) ? dData : (dData?.data || dData?.items || []));
         }
         if (empRes.ok) {
           const eData = await empRes.json();
-          setEmployees(Array.isArray(eData) ? eData : (eData?.items || []));
+          setEmployees(Array.isArray(eData) ? eData : (eData?.data || eData?.items || []));
         }
       }
     };
@@ -220,7 +220,7 @@ export function KpiDashboard({ user }: { user: any }) {
         </div>
         
         <div className="flex gap-2">
-          {(user.role === "ADMIN" || user.role === "ACCOUNTANT") && (
+          {(user.role === "ADMIN" || user.role === "ACCOUNTANT" || user.role === "KETOAN") && (
             <Button variant="primary" size="sm" onClick={() => handleExport("payroll")} className="bg-[#A14F39] hover:bg-[#8a3f2d] text-white">
               <Download className="w-4 h-4 mr-2" />
               Xuất Kết Quả Lương (Excel)
