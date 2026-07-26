@@ -20,11 +20,27 @@ export function KpiPendingApprovalList({ currentUser }: { currentUser: any }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [processingKey, setProcessingKey] = useState<string | null>(null);
 
+  const userRoleStr = (currentUser?.role || (Array.isArray(currentUser?.roles) ? currentUser.roles[0] : "") || "").toUpperCase();
+  const isAdmin = ["ADMIN", "OWNER"].includes(userRoleStr);
+  const isFullDeptAccess = ["ADMIN", "OWNER", "ACCOUNTANT"].includes(userRoleStr);
+  const managerDeptIds = currentUser?.departmentMember?.map((dm: any) => dm.departmentId) || [];
+
+  const visibleDepartments = isFullDeptAccess
+    ? departments
+    : departments.filter((d) => managerDeptIds.includes(d.id));
+
+  useEffect(() => {
+    if (!isFullDeptAccess && managerDeptIds.length > 0 && !selectedDept) {
+      setSelectedDept(managerDeptIds[0]);
+    }
+  }, [isFullDeptAccess, managerDeptIds]);
+
   const fetchSheets = async () => {
     setLoading(true);
     try {
       const url = new URL("/api/kpi/pending", window.location.origin);
-      if (selectedDept) url.searchParams.append("departmentId", selectedDept);
+      const activeDept = isFullDeptAccess ? selectedDept : (selectedDept || managerDeptIds[0] || "");
+      if (activeDept) url.searchParams.append("departmentId", activeDept);
       if (statusFilter !== "ALL") url.searchParams.append("status", statusFilter);
       if (searchTerm) url.searchParams.append("search", searchTerm);
 
@@ -52,6 +68,7 @@ export function KpiPendingApprovalList({ currentUser }: { currentUser: any }) {
   }, [selectedDept, statusFilter]);
 
   const handleApprove = async (sheet: any, action: "APPROVE" | "UNLOCK") => {
+    if (!isAdmin) return alert("Chỉ tài khoản quản trị mới có quyền phê duyệt phiếu KPI");
     setProcessingKey(sheet.key);
     try {
       const res = await fetch("/api/kpi/approve", {
@@ -135,8 +152,8 @@ export function KpiPendingApprovalList({ currentUser }: { currentUser: any }) {
             onChange={(e) => setSelectedDept(e.target.value)}
             className="border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#A14F39]/20"
           >
-            <option value="">Tất cả phòng ban</option>
-            {departments.map((d) => (
+            {isFullDeptAccess && <option value="">Tất cả phòng ban</option>}
+            {visibleDepartments.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name}
               </option>
@@ -282,17 +299,19 @@ export function KpiPendingApprovalList({ currentUser }: { currentUser: any }) {
                   </Button>
 
                   {!isApproved ? (
-                    <Button
-                      size="sm"
-                      disabled={isProcessing}
-                      onClick={() => handleApprove(s, "APPROVE")}
-                      className="bg-[#A14F39] hover:bg-[#8a3f2d] text-white text-xs font-semibold py-1.5"
-                    >
-                      <CheckCircle className="w-3.5 h-3.5 mr-1" />
-                      {isProcessing ? "Đang xử lý..." : "Phê Duyệt Ngay"}
-                    </Button>
+                    isAdmin && (
+                      <Button
+                        size="sm"
+                        disabled={isProcessing}
+                        onClick={() => handleApprove(s, "APPROVE")}
+                        className="bg-[#A14F39] hover:bg-[#8a3f2d] text-white text-xs font-semibold py-1.5"
+                      >
+                        <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                        {isProcessing ? "Đang xử lý..." : "Phê Duyệt Ngay"}
+                      </Button>
+                    )
                   ) : (
-                    (currentUser.role === "ADMIN" || currentUser.role === "OWNER" || currentUser.role === "MANAGER") && (
+                    isAdmin && (
                       <Button
                         variant="outline"
                         size="sm"

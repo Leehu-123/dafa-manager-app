@@ -22,6 +22,20 @@ export function KpiDashboard({ user }: { user: any }) {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("month");
 
+  const userRoleStr = (user?.role || (Array.isArray(user?.roles) ? user.roles[0] : '') || '').toUpperCase();
+  const isFullDeptAccess = ["ADMIN", "OWNER", "ACCOUNTANT"].includes(userRoleStr);
+  const managerDeptIds = user?.departmentMember?.map((dm: any) => dm.departmentId) || [];
+
+  const visibleDepartments = isFullDeptAccess
+    ? departments
+    : departments.filter((d) => managerDeptIds.includes(d.id));
+
+  useEffect(() => {
+    if (!isFullDeptAccess && managerDeptIds.length > 0 && !selectedDept) {
+      setSelectedDept(managerDeptIds[0]);
+    }
+  }, [isFullDeptAccess, managerDeptIds]);
+
   useEffect(() => {
     const fetchDropdowns = async () => {
       if (user.role !== "EMPLOYEE") {
@@ -97,7 +111,7 @@ export function KpiDashboard({ user }: { user: any }) {
   const avgScore = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
   const rating = getKpiRating(avgScore);
   const ratingColor = getKpiRatingColor(avgScore);
-  
+
   const passedCount = filteredRecords.filter(r => {
     const act = r.actualValue ?? r.actual ?? 0;
     const crit = r.criteria || {};
@@ -141,8 +155,8 @@ export function KpiDashboard({ user }: { user: any }) {
                 value={selectedDept}
                 onChange={(e) => { setSelectedDept(e.target.value); setSelectedEmp(""); }}
               >
-                <option value="">Tất cả phòng ban</option>
-                {departments.map(d => (
+                {isFullDeptAccess && <option value="">Tất cả phòng ban</option>}
+                {visibleDepartments.map(d => (
                   <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
               </select>
@@ -156,12 +170,12 @@ export function KpiDashboard({ user }: { user: any }) {
                   .filter(emp => {
                     const roleStr = (user?.role || (Array.isArray(user?.roles) ? user.roles[0] : '') || '').toUpperCase();
                     if (roleStr === "MANAGER") {
-                      const managerDeptIds = user?.departmentMember?.map((dm: any) => dm.departmentId) || [];
                       const empDeptIds = emp.departmentMember?.map((dm: any) => dm.departmentId) || [];
                       const isInDept = empDeptIds.some((id: string) => managerDeptIds.includes(id)) || emp.id === user?.id;
                       if (!isInDept) return false;
                     }
-                    return !selectedDept || emp.departmentMember?.some((dm: any) => dm.departmentId === selectedDept);
+                    const deptToFilter = isFullDeptAccess ? selectedDept : (selectedDept || managerDeptIds[0]);
+                    return !deptToFilter || emp.departmentMember?.some((dm: any) => dm.departmentId === deptToFilter);
                   })
                   .map(emp => (
                   <option key={emp.id} value={emp.id}>{emp.fullName}</option>
