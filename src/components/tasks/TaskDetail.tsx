@@ -84,23 +84,31 @@ export default function TaskDetail({ taskId }: { taskId: string }) {
       formData.append("file", file);
       
       const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
-      if (!uploadRes.ok) throw new Error("Upload failed");
-      const { url, name, size, type } = await uploadRes.json();
+      if (!uploadRes.ok) {
+        const errText = await uploadRes.text();
+        throw new Error(`Upload failed: ${errText}`);
+      }
+      const data = await uploadRes.json();
+      const url = data.url;
+      const fileName = data.filename || data.fileName || data.name || file.name;
+      const fileSize = data.size || data.fileSize || file.size;
+      const fileType = data.mimetype || data.fileType || data.type || file.type;
 
       const attachRes = await fetch(`/api/tasks/${taskId}/attachments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileUrl: url, fileName: name, fileSize: size, fileType: type })
+        body: JSON.stringify({ fileUrl: url, fileName, fileSize, fileType })
       });
       
       if (attachRes.ok) {
         fetchTask();
       } else {
-        throw new Error("Failed to save attachment");
+        const attachErr = await attachRes.text();
+        throw new Error(`Failed to save attachment: ${attachErr}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Lỗi tải lên file");
+      alert(`Lỗi tải lên file: ${err.message || "Không xác định"}`);
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -251,6 +259,12 @@ export default function TaskDetail({ taskId }: { taskId: string }) {
                 <User className="w-4 h-4 dafa-muted" />
                 <span>Người tạo: <span className="font-medium">{task.createdBy?.fullName}</span></span>
               </div>
+              {task.reportTo && (
+                <div className="flex items-center gap-3 text-gray-600">
+                  <User className="w-4 h-4 text-amber-600" />
+                  <span>Báo cáo cho: <span className="font-medium text-amber-900">{task.reportTo.fullName}</span></span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -264,6 +278,19 @@ export default function TaskDetail({ taskId }: { taskId: string }) {
                 </div>
               ))}
               {task.assignees?.length === 0 && <span className="text-sm dafa-muted">Chưa phân công</span>}
+            </div>
+          </div>
+
+          <div className="dafa-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <h3 className="text-lg font-semibold mb-4 dafa-text border-b pb-2">Người nắm thông tin</h3>
+            <div className="space-y-3">
+              {task.followers?.map((f: any) => (
+                <div key={f.id} className="flex items-center gap-3">
+                  <Avatar src={f.user.avatarUrl} fallback={getInitials(f.user.fullName)} className="w-8 h-8" />
+                  <span className="text-sm font-medium">{f.user.fullName}</span>
+                </div>
+              ))}
+              {(!task.followers || task.followers.length === 0) && <span className="text-sm dafa-muted">Chưa có người nắm thông tin</span>}
             </div>
           </div>
           

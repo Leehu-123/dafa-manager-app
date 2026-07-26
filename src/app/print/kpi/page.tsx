@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { fetchFromCoreAPI } from '@/lib/api';
 import { redirect } from "next/navigation";
 import { PrintLayout } from "./PrintLayout";
 
@@ -10,7 +10,7 @@ export const metadata = {
 export default async function PrintKpiPage({
   searchParams,
 }: {
-  searchParams: Promise<{ userId: string; periodStart: string; periodEnd: string }>;
+  searchParams: Promise<{ userId: string; periodStart?: string; periodEnd?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) {
@@ -19,54 +19,44 @@ export default async function PrintKpiPage({
 
   const { userId, periodStart, periodEnd } = await searchParams;
 
-  if (!userId || !periodStart || !periodEnd) {
-    return <div className="p-8 text-center text-red-500">Thiếu tham số (userId, periodStart, periodEnd)</div>;
+  if (!userId) {
+    return <div className="p-8 text-center text-red-500 font-medium">Vui lòng chọn nhân viên để in biên bản KPI.</div>;
   }
 
-  const targetUser = await prisma.user.findUnique({
-    where: { id: userId, companyId: session.user.companyId },
-    include: {
-      departmentMember: {
-        include: { department: true }
-      }
-    }
-  });
+  const res = await fetchFromCoreAPI('/users/' + userId);
+  const targetUser = res?.data || res;
 
   if (!targetUser) {
-    return <div className="p-8 text-center text-red-500">Không tìm thấy nhân viên</div>;
+    return <div className="p-8 text-center text-red-500 font-medium">Không tìm thấy nhân viên</div>;
   }
 
-  // Fetch criteria
   const departmentId = targetUser.departmentMember?.[0]?.departmentId;
-  
-  let whereClause: any = { companyId: session.user.companyId };
-  if (departmentId && userId) {
-    whereClause.OR = [
-      { departmentId, userId },
-      { departmentId, userId: null }
-    ];
-  } else if (departmentId) {
-    whereClause.departmentId = departmentId;
-  } else if (userId) {
-    whereClause.userId = userId;
-  }
-
-  const criteria = await prisma.kpiCriteria.findMany({
-    where: whereClause,
-    orderBy: { createdAt: "desc" },
-  });
-
   const departmentName = targetUser.departmentMember?.[0]?.department?.name || "N/A";
+
+  const criteriaRes = await fetchFromCoreAPI('/kpi-criteria' + (departmentId ? `?departmentId=${departmentId}` : ''));
+  const criteriaData = criteriaRes?.data || criteriaRes || [];
+
+  let periodText = "";
+  if (periodStart && periodEnd) {
+    const start = new Date(periodStart);
+    const end = new Date(periodEnd);
+    if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+      periodText = `Từ ${start.toLocaleDateString("vi-VN")} đến ${end.toLocaleDateString("vi-VN")}`;
+    }
+  }
   
-  const start = new Date(periodStart);
-  const end = new Date(periodEnd);
-  const periodText = `Từ ${start.toLocaleDateString("vi-VN")} đến ${end.toLocaleDateString("vi-VN")}`;
+  if (!periodText) {
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+    periodText = `Tháng ${month}/${year}`;
+  }
 
   return (
     <PrintLayout 
       user={targetUser} 
       departmentName={departmentName} 
-      criteria={criteria} 
+      criteria={Array.isArray(criteriaData) ? criteriaData : []} 
       periodText={periodText} 
     />
   );

@@ -15,15 +15,17 @@ export default function TaskForm({ initialData = null }: { initialData?: any }) 
     title: initialData?.title || "",
     description: initialData?.description || "",
     departmentId: initialData?.departmentId || "",
+    reportToId: initialData?.reportToId || "",
     priority: initialData?.priority || "MEDIUM",
     status: initialData?.status || "TODO",
     deadline: initialData?.deadline ? initialData.deadline.split('T')[0] : "",
-    assignees: initialData?.assignees?.map((a:any)=>a.userId) || [],
+    assignees: initialData?.assignees?.map((a: any) => a.userId) || [],
+    followers: initialData?.followers?.map((f: any) => f.userId) || [],
   });
 
   useEffect(() => {
     fetch("/api/departments").then(r => r.json()).then(setDepartments);
-    fetch("/api/users").then(r => r.json()).then(setUsers);
+    fetch("/api/organization/employees").then(r => r.json()).then(setUsers);
   }, []);
 
   const handleChange = (e: any) => {
@@ -36,6 +38,14 @@ export default function TaskForm({ initialData = null }: { initialData?: any }) 
       const current = prev.assignees;
       if (current.includes(userId)) return { ...prev, assignees: current.filter((id: string) => id !== userId) };
       return { ...prev, assignees: [...current, userId] };
+    });
+  };
+
+  const handleFollowerToggle = (userId: string) => {
+    setFormData(prev => {
+      const current = prev.followers;
+      if (current.includes(userId)) return { ...prev, followers: current.filter((id: string) => id !== userId) };
+      return { ...prev, followers: [...current, userId] };
     });
   };
 
@@ -53,7 +63,8 @@ export default function TaskForm({ initialData = null }: { initialData?: any }) 
       if (res.ok) {
         router.push("/tasks");
       } else {
-        alert("Có lỗi xảy ra, vui lòng thử lại.");
+        const errText = await res.text();
+        alert(`Lỗi khi lưu công việc: ${errText}`);
       }
     } catch (error) {
       console.error(error);
@@ -86,14 +97,24 @@ export default function TaskForm({ initialData = null }: { initialData?: any }) 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Phòng ban</label>
             <select name="departmentId" value={formData.departmentId} onChange={handleChange} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none">
-              <option value="">Chọn phòng ban</option>
+              <option value="">-- Chọn phòng ban --</option>
               {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Báo cáo cho ai</label>
+            <select name="reportToId" value={formData.reportToId} onChange={handleChange} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none">
+              <option value="">-- Chọn người nhận báo cáo --</option>
+              {users.map(u => <option key={u.id} value={u.id}>{u.fullName}</option>)}
+            </select>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Hạn chót</label>
             <Input type="date" name="deadline" value={formData.deadline} onChange={handleChange} />
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Mức độ ưu tiên</label>
             <select name="priority" value={formData.priority} onChange={handleChange} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none">
@@ -103,6 +124,7 @@ export default function TaskForm({ initialData = null }: { initialData?: any }) 
               <option value="URGENT">Khẩn cấp</option>
             </select>
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
             <select name="status" value={formData.status} onChange={handleChange} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none">
@@ -114,20 +136,39 @@ export default function TaskForm({ initialData = null }: { initialData?: any }) 
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Người thực hiện</label>
-          <div className="border border-gray-200 rounded-md p-3 max-h-48 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {users.map(u => (
-              <label key={u.id} className="flex items-center space-x-2 p-1 hover:bg-gray-50 rounded cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  checked={formData.assignees.includes(u.id)}
-                  onChange={() => handleAssigneeToggle(u.id)}
-                  className="rounded border-gray-300 text-[#A14F39] focus:ring-[#A14F39]"
-                />
-                <span className="text-sm">{u.fullName}</span>
-              </label>
-            ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Người thực hiện</label>
+            <div className="border border-gray-200 rounded-md p-3 max-h-48 overflow-y-auto space-y-2">
+              {users.map(u => (
+                <label key={u.id} className="flex items-center space-x-2 p-1 hover:bg-gray-50 rounded cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={formData.assignees.includes(u.id)}
+                    onChange={() => handleAssigneeToggle(u.id)}
+                    className="rounded border-gray-300 text-[#A14F39] focus:ring-[#A14F39]"
+                  />
+                  <span className="text-sm">{u.fullName}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Người nắm thông tin (Followers)</label>
+            <div className="border border-gray-200 rounded-md p-3 max-h-48 overflow-y-auto space-y-2">
+              {users.map(u => (
+                <label key={u.id} className="flex items-center space-x-2 p-1 hover:bg-gray-50 rounded cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={formData.followers.includes(u.id)}
+                    onChange={() => handleFollowerToggle(u.id)}
+                    className="rounded border-gray-300 text-[#A14F39] focus:ring-[#A14F39]"
+                  />
+                  <span className="text-sm">{u.fullName}</span>
+                </label>
+              ))}
+            </div>
           </div>
         </div>
       </div>

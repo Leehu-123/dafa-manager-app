@@ -98,7 +98,12 @@ export function KpiDashboard({ user }: { user: any }) {
   const rating = getKpiRating(avgScore);
   const ratingColor = getKpiRatingColor(avgScore);
   
-  const passedCount = filteredRecords.filter(r => (r.actual / r.criteria.target) >= 1).length;
+  const passedCount = filteredRecords.filter(r => {
+    const act = r.actualValue ?? r.actual ?? 0;
+    const crit = r.criteria || {};
+    const score = r.score ?? calculateKpiScore(act, crit.targetValue || 0, crit.weightPercent || 0, crit.comparisonType, crit.unit);
+    return score >= (crit.weightPercent || 0);
+  }).length;
   const failedCount = filteredRecords.length - passedCount;
 
   const handleExport = (format: string) => {

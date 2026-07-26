@@ -1,5 +1,5 @@
 import { auth } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { fetchFromCoreAPI } from '@/lib/api';
 import { redirect } from 'next/navigation';
 import { SettingsForm } from '@/components/settings/SettingsForm';
 
@@ -8,9 +8,8 @@ export default async function SettingsPage() {
   if (!session?.user) redirect('/login');
   if (session.user.role !== 'ADMIN') redirect('/');
 
-  const company = await prisma.company.findUnique({
-    where: { id: session.user.companyId }
-  });
+  const res = await fetchFromCoreAPI('/companies/me');
+  const company = res;
 
   return (
     <div className="space-y-6">

@@ -23,8 +23,11 @@ export function EmployeeList() {
     id: "", name: "", email: "", password: "", phone: "", role: "EMPLOYEE", jobTitle: "", branchId: "", departmentIds: [] as string[], isActive: true
   });
 
+  const [error, setError] = useState("");
+
   const fetchData = async () => {
     setLoading(true);
+    setError("");
     try {
       let empUrl = "/api/organization/employees?";
       if (filterBranch) empUrl += `branchId=${filterBranch}&`;
@@ -36,11 +39,17 @@ export function EmployeeList() {
         fetch("/api/departments")
       ]);
       
-      if (empRes.ok) setEmployees(await empRes.json());
-      if (branchRes.ok) setBranches(await branchRes.json());
-      if (deptRes.ok) setDepartments(await deptRes.json());
-    } catch (error) {
-      console.error("Error fetching data:", error);
+      if (empRes.status === 401 || branchRes.status === 401 || deptRes.status === 401) {
+        setError("SESSION_EXPIRED");
+      } else {
+        if (empRes.ok) setEmployees(await empRes.json());
+        else setError(`Lỗi API Employee (${empRes.status}): ${await empRes.text()}`);
+        if (branchRes.ok) setBranches(await branchRes.json());
+        if (deptRes.ok) setDepartments(await deptRes.json());
+      }
+    } catch (err: any) {
+      console.error("Error fetching data:", err);
+      setError(`Lỗi kết nối: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -115,6 +124,18 @@ export function EmployeeList() {
           <Plus className="w-4 h-4 mr-2" /> Thêm Nhân Viên
         </Button>
       </div>
+
+      {error === "SESSION_EXPIRED" ? (
+        <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-sm flex items-center justify-between">
+          <span>Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.</span>
+          <Button variant="outline" size="sm" onClick={() => window.location.href = '/login'}>Đăng nhập lại</Button>
+        </div>
+      ) : error ? (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm flex items-center justify-between">
+          <span>{error}</span>
+          <Button variant="outline" size="sm" onClick={() => fetchData()}>Thử lại</Button>
+        </div>
+      ) : null}
 
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">

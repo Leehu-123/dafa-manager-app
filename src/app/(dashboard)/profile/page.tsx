@@ -2,7 +2,7 @@ import React from "react";
 import { Card } from "@/components/ui/Card";
 import { User, Mail, Phone, Briefcase, Building } from "lucide-react";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { fetchFromCoreAPI } from '@/lib/api';
 import { redirect } from "next/navigation";
 import { ProfileTelegramSettings } from "@/components/profile/ProfileTelegramSettings";
 
@@ -10,13 +10,8 @@ export default async function ProfilePage() {
   const session = await auth();
   if (!session?.user) redirect('/login');
   
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    include: {
-      company: true,
-      departmentMember: { include: { department: true } }
-    }
-  });
+  const res = await fetchFromCoreAPI('/users/' + session.user.id);
+  const user = res.data || res;
 
   if (!user) return <div className="p-8 text-center">Không tìm thấy thông tin người dùng</div>;
 

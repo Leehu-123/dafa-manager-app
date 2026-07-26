@@ -1,7 +1,34 @@
-import NextAuth from 'next-auth';
+import NextAuth, { DefaultSession } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
-import bcrypt from 'bcryptjs';
-import { prisma } from './prisma';
+
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      role: string;
+      companyId: string;
+      accessToken: string;
+    } & DefaultSession["user"];
+  }
+
+  interface User {
+    id: string;
+    role: string;
+    companyId: string;
+    accessToken: string;
+    name?: string | null;
+    email?: string | null;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    role: string;
+    companyId: string;
+    accessToken: string;
+  }
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -13,68 +40,96 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          return null;
+          throw new Error("Vui lòng nhập email và mật khẩu");
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-          include: {
-            userRoles: {
-              include: { role: true }
-            }
+        try {
+          const API_URL = process.env.CORE_API_URL || "http://localhost:3003";
+          const res = await fetch(`${API_URL}/auth/login`, {
+            method: "POST",
+            body: JSON.stringify({
+              identifier: credentials.email as string,
+              password: credentials.password as string,
+            }),
+            headers: { "Content-Type": "application/json" },
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            throw new Error(data.message || "Email hoặc mật khẩu không đúng");
           }
-        });
 
-        if (!user || !user.passwordHash || !user.isActive) {
-          return null;
+          const profileRes = await fetch(`${API_URL}/auth/me`, {
+            headers: {
+              Authorization: `Bearer ${data.data.accessToken}`,
+            },
+          });
+
+          if (!profileRes.ok) {
+            throw new Error("Không thể lấy thông tin người dùng");
+          }
+
+          const profileData = await profileRes.json();
+          const userProfile = profileData.data;
+
+          const rawRole = Array.isArray(userProfile.roles)
+            ? userProfile.roles[0]
+            : userProfile.roles?.[0]?.name;
+
+          const roleString = String(rawRole || "").toLowerCase();
+          const roleMap: Record<string, string> = {
+            owner: "ADMIN",
+            admin: "ADMIN",
+            administrator: "ADMIN",
+            manager: "MANAGER",
+            sales: "EMPLOYEE",
+            user: "EMPLOYEE",
+            employee: "EMPLOYEE",
+          };
+
+          const normalizedRole = roleMap[roleString] || "EMPLOYEE";
+
+          return {
+            id: userProfile.id,
+            email: userProfile.email,
+            name: userProfile.fullName,
+            role: normalizedRole,
+            companyId: userProfile.companyId,
+            accessToken: data.data.accessToken,
+          };
+        } catch (error: any) {
+          throw new Error(error.message || "Đăng nhập thất bại");
         }
-
-        const isValidPassword = await bcrypt.compare(
-          credentials.password as string,
-          user.passwordHash
-        );
-
-        if (!isValidPassword) {
-          return null;
-        }
-        
-        let primaryRole = 'EMPLOYEE';
-        if (user.userRoles) {
-          const roleNames = user.userRoles.map(ur => ur.role.name.toUpperCase());
-          if (roleNames.includes('DAFA_ADMIN')) primaryRole = 'ADMIN';
-          else if (roleNames.includes('DAFA_MANAGER')) primaryRole = 'MANAGER';
-          else if (roleNames.includes('DAFA_ACCOUNTANT')) primaryRole = 'ACCOUNTANT';
-          else if (roleNames.includes('ADMIN') && !roleNames.some(r => r.startsWith('DAFA_'))) primaryRole = 'ADMIN'; // Fallback for old seeds if no DAFA role exists
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.fullName,
-          role: primaryRole,
-          companyId: user.companyId
-        };
       },
     }),
   ],
-  session: { strategy: 'jwt' },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id as string;
-        token.role = (user as any).role;
-        token.companyId = (user as any).companyId;
+        token.id = user.id;
+        token.role = user.role;
+        token.companyId = user.companyId;
+        token.accessToken = user.accessToken;
       }
       return token;
     },
     async session({ session, token }) {
-      if (session.user && token) {
+      if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
         session.user.companyId = token.companyId as string;
+        session.user.accessToken = token.accessToken as string;
       }
       return session;
     },
   },
-  pages: { signIn: '/login' },
+  pages: {
+    signIn: "/login",
+  },
+  session: {
+    strategy: "jwt",
+    maxAge: 24 * 60 * 60, // 24 hours
+  },
+  secret: process.env.NEXTAUTH_SECRET || "DafaSecureSecret123!@#",
 });

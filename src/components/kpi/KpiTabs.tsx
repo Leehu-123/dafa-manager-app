@@ -12,9 +12,10 @@ export function KpiTabs({ userRole }: { userRole?: string }) {
 
   if (userRole !== "EMPLOYEE") {
     tabs.push({ name: "Đánh giá nhân viên", href: "/kpi/entry" });
+    tabs.push({ name: "Duyệt Phiếu KPI", href: "/kpi/approval" });
   }
   
-  if (userRole === "ADMIN") {
+  if (userRole === "ADMIN" || userRole === "OWNER") {
     tabs.push({ name: "Cài đặt tiêu chí", href: "/kpi/criteria" });
   }
 

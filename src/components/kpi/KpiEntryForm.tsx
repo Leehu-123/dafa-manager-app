@@ -5,17 +5,30 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Save } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { calculateKpiScore } from "@/lib/utils";
 
 export function KpiEntryForm({ currentUser }: { currentUser: any }) {
+  const searchParams = useSearchParams();
+  const paramUserId = searchParams.get("userId");
+  const paramPeriodStart = searchParams.get("periodStart");
+  const paramPeriodEnd = searchParams.get("periodEnd");
+
   const [departments, setDepartments] = useState<any[]>([]);
   const [selectedDept, setSelectedDept] = useState("");
   const [employees, setEmployees] = useState<any[]>([]);
-  const [selectedEmp, setSelectedEmp] = useState("");
+  const [selectedEmp, setSelectedEmp] = useState(paramUserId || "");
   const [criteria, setCriteria] = useState<any[]>([]);
-  const [periodStart, setPeriodStart] = useState("");
-  const [periodEnd, setPeriodEnd] = useState("");
+  const [periodStart, setPeriodStart] = useState(paramPeriodStart || "");
+  const [periodEnd, setPeriodEnd] = useState(paramPeriodEnd || "");
   const [actuals, setActuals] = useState<Record<string, string | number>>({});
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (paramUserId) setSelectedEmp(paramUserId);
+    if (paramPeriodStart) setPeriodStart(paramPeriodStart);
+    if (paramPeriodEnd) setPeriodEnd(paramPeriodEnd);
+  }, [paramUserId, paramPeriodStart, paramPeriodEnd]);
 
   useEffect(() => {
     const fetchDepartments = async () => {
@@ -78,22 +91,33 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
     
     setLoading(true);
     try {
-      for (const crit of criteria) {
+      const recordsToSave = criteria.map((crit) => {
         const actual = parseFloat(actuals[crit.id] as string) || 0;
-        await fetch("/api/kpi/records", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId: selectedEmp,
-            criteriaId: crit.id,
-            periodStart,
-            periodEnd,
-            actual,
-            note: ""
-          })
-        });
+        const score = calculateKpiScore(actual, crit.targetValue || 0, crit.weightPercent || 0, crit.comparisonType, crit.unit);
+        return {
+          criteriaId: crit.id,
+          actual,
+          score,
+          note: "",
+        };
+      });
+
+      const res = await fetch("/api/kpi/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: selectedEmp,
+          periodStart,
+          periodEnd,
+          records: recordsToSave,
+        }),
+      });
+
+      if (res.ok) {
+        alert("Đã lưu dữ liệu KPI thành công!");
+      } else {
+        alert("Có lỗi xảy ra khi lưu dữ liệu KPI");
       }
-      alert("Đã lưu dữ liệu KPI thành công!");
     } catch (error) {
       console.error("Error saving KPI records", error);
       alert("Có lỗi xảy ra khi lưu");
@@ -140,18 +164,8 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
       const act = parseFloat(rawAct as string);
       if (isNaN(act)) return sum;
       
-      let score = 0;
-      if (crit.comparisonType === "LOWER_BETTER") {
-        if (crit.targetValue === 0) {
-          score = act <= 0 ? crit.weightPercent : 0;
-        } else {
-          const ratio = act / crit.targetValue;
-          score = (2 - ratio) * crit.weightPercent;
-        }
-      } else {
-        score = (act / (crit.targetValue || 1)) * (crit.weightPercent || 0);
-      }
-      return sum + Math.max(0, Math.min(score, crit.weightPercent || 0));
+      const score = calculateKpiScore(act, crit.targetValue || 0, crit.weightPercent || 0, crit.comparisonType, crit.unit);
+      return sum + score;
     }, 0);
   };
 
@@ -209,17 +223,7 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
                     if (rawAct !== undefined && rawAct !== "") {
                       actNum = parseFloat(rawAct as string);
                       if (!isNaN(actNum)) {
-                        if (crit.comparisonType === "LOWER_BETTER") {
-                          if (crit.targetValue === 0) {
-                            estScore = actNum <= 0 ? crit.weightPercent : 0;
-                          } else {
-                            const ratio = actNum / crit.targetValue;
-                            estScore = (2 - ratio) * crit.weightPercent;
-                          }
-                        } else {
-                          estScore = (actNum / (crit.targetValue || 1)) * (crit.weightPercent || 0);
-                        }
-                        estScore = Math.max(0, Math.min(estScore, crit.weightPercent || 0));
+                        estScore = calculateKpiScore(actNum, crit.targetValue || 0, crit.weightPercent || 0, crit.comparisonType, crit.unit);
                       }
                     }
                     return (
@@ -265,7 +269,13 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
                   type="button" 
                   variant="outline" 
                   className="border-blue-600 text-blue-600 hover:bg-blue-50"
-                  onClick={() => window.open(`/print/kpi?userId=${selectedEmp}&periodStart=${periodStart}&periodEnd=${periodEnd}`, '_blank')}
+                  onClick={() => {
+                    if (!selectedEmp) {
+                      alert("Vui lòng chọn nhân viên trước khi in biên bản!");
+                      return;
+                    }
+                    window.open(`/print/kpi?userId=${selectedEmp}&periodStart=${periodStart}&periodEnd=${periodEnd}`, '_blank');
+                  }}
                 >
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                   In Biên Bản (Mẫu Trống)

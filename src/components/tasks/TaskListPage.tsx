@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
@@ -11,6 +11,9 @@ import { cn, formatDate, getStatusLabel, getStatusColor, getPriorityLabel, getPr
 
 export default function TaskListPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialStatus = searchParams.get("status") || "";
+
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -18,13 +21,21 @@ export default function TaskListPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [priorityFilter, setPriorityFilter] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [departments, setDepartments] = useState<any[]>([]);
 
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const urlStatus = searchParams.get("status") || "";
+    setStatusFilter(urlStatus);
+  }, [searchParams]);
+
   const fetchTasks = async () => {
     setLoading(true);
+    setError("");
     try {
       const query = new URLSearchParams({
         page: page.toString(),
@@ -35,13 +46,19 @@ export default function TaskListPage() {
         ...(departmentFilter && { departmentId: departmentFilter }),
       });
       const res = await fetch(`/api/tasks?${query.toString()}`);
-      if (res.ok) {
+      if (res.status === 401) {
+        setError("SESSION_EXPIRED");
+      } else if (res.ok) {
         const data = await res.json();
-        setTasks(data.data);
-        setTotalPages(data.pagination.totalPages);
+        setTasks(data.data || []);
+        setTotalPages(data.pagination?.totalPages || 1);
+      } else {
+        const errText = await res.text();
+        setError(`Lỗi kết nối API (${res.status}): ${errText}`);
       }
-    } catch (error) {
-      console.error("Failed to fetch tasks", error);
+    } catch (err: any) {
+      console.error("Failed to fetch tasks", err);
+      setError(`Lỗi hệ thống: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -69,6 +86,18 @@ export default function TaskListPage() {
           <Plus className="w-4 h-4 mr-2" /> Thêm công việc
         </Button>
       </div>
+
+      {error === "SESSION_EXPIRED" ? (
+        <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-sm flex items-center justify-between">
+          <span>Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.</span>
+          <Button variant="outline" size="sm" onClick={() => window.location.href = '/login'}>Đăng nhập lại</Button>
+        </div>
+      ) : error ? (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm flex items-center justify-between">
+          <span>{error}</span>
+          <Button variant="outline" size="sm" onClick={() => fetchTasks()}>Thử lại</Button>
+        </div>
+      ) : null}
 
       <div className="flex flex-col sm:flex-row justify-between gap-4 p-4 dafa-bg dafa-border rounded-lg shadow-sm border border-gray-200">
         <form onSubmit={handleSearch} className="flex flex-1 gap-2">

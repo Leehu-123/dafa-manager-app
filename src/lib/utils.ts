@@ -90,9 +90,42 @@ export function getInitials(name: string): string {
     .toUpperCase();
 }
 
-export function calculateKpiScore(actual: number, target: number, weight: number): number {
-  if (target === 0) return 0;
-  return (actual / target) * weight;
+export function calculateKpiScore(
+  actual: number,
+  target: number,
+  weight: number,
+  comparisonType: string = 'HIGHER_BETTER',
+  unit: string = ''
+): number {
+  const normalizedUnit = (unit || '').toLowerCase().trim();
+  
+  const isLowerBetter =
+    comparisonType === 'LOWER_BETTER' ||
+    normalizedUnit.includes('lỗi') ||
+    normalizedUnit.includes('lần') ||
+    normalizedUnit.includes('sự cố') ||
+    normalizedUnit.includes('khiếu nại') ||
+    (target === 0 && !normalizedUnit.includes('%'));
+
+  if (isLowerBetter) {
+    if (target === 0) {
+      return actual <= 0 ? weight : 0;
+    } else {
+      if (actual <= target) return weight;
+      const ratio = actual / target;
+      const score = (2 - ratio) * weight;
+      return Math.max(0, Math.min(score, weight));
+    }
+  } else {
+    if (target === 0) {
+      return actual >= 0 ? weight : 0;
+    }
+    if (actual >= target) {
+      return weight;
+    }
+    const score = (actual / target) * weight;
+    return Math.max(0, Math.min(score, weight));
+  }
 }
 
 export function getKpiRating(score: number): string {
