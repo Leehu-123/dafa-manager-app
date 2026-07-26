@@ -190,7 +190,16 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
             <select required className="border dafa-border rounded-md px-3 py-2 text-sm bg-white" value={selectedEmp} onChange={(e) => setSelectedEmp(e.target.value)}>
               <option value="">-- Chọn nhân viên --</option>
               {employees
-                .filter(emp => !selectedDept || emp.departmentMember?.some((dm: any) => dm.departmentId === selectedDept))
+                .filter(emp => {
+                  const roleStr = (currentUser?.role || (Array.isArray(currentUser?.roles) ? currentUser.roles[0] : '') || '').toUpperCase();
+                  if (roleStr === "MANAGER") {
+                    const managerDeptIds = currentUser?.departmentMember?.map((dm: any) => dm.departmentId) || [];
+                    const empDeptIds = emp.departmentMember?.map((dm: any) => dm.departmentId) || [];
+                    const isInDept = empDeptIds.some((id: string) => managerDeptIds.includes(id)) || emp.id === currentUser?.id;
+                    if (!isInDept) return false;
+                  }
+                  return !selectedDept || emp.departmentMember?.some((dm: any) => dm.departmentId === selectedDept);
+                })
                 .map(emp => (
                 <option key={emp.id} value={emp.id}>{emp.fullName} - {emp.jobTitle}</option>
               ))}

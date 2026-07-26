@@ -153,7 +153,16 @@ export function KpiDashboard({ user }: { user: any }) {
               >
                 <option value="">Tất cả nhân viên (Gộp chung)</option>
                 {employees
-                  .filter(emp => !selectedDept || emp.departmentMember?.some((dm: any) => dm.departmentId === selectedDept))
+                  .filter(emp => {
+                    const roleStr = (user?.role || (Array.isArray(user?.roles) ? user.roles[0] : '') || '').toUpperCase();
+                    if (roleStr === "MANAGER") {
+                      const managerDeptIds = user?.departmentMember?.map((dm: any) => dm.departmentId) || [];
+                      const empDeptIds = emp.departmentMember?.map((dm: any) => dm.departmentId) || [];
+                      const isInDept = empDeptIds.some((id: string) => managerDeptIds.includes(id)) || emp.id === user?.id;
+                      if (!isInDept) return false;
+                    }
+                    return !selectedDept || emp.departmentMember?.some((dm: any) => dm.departmentId === selectedDept);
+                  })
                   .map(emp => (
                   <option key={emp.id} value={emp.id}>{emp.fullName}</option>
                 ))}
