@@ -8,7 +8,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis
 } from "recharts";
-import { getKpiRating, getKpiRatingColor } from "@/lib/utils";
+import { getKpiRating, getKpiRatingColor, calculateKpiScore } from "@/lib/utils";
 import { Download, Trash2 } from "lucide-react";
 
 export function KpiDashboard({ user }: { user: any }) {
