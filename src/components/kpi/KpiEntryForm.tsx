@@ -24,20 +24,23 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
   const [actuals, setActuals] = useState<Record<string, string | number>>({});
   const [loading, setLoading] = useState(false);
 
-  const userRoleStr = (currentUser?.role || (Array.isArray(currentUser?.roles) ? currentUser.roles[0] : '') || '').toUpperCase();
+  const currentUserId = currentUser?.id || currentUser?.sub;
+  const currentUserFull = employees.find((e) => e.id === currentUserId) || currentUser;
+
+  const userRoleStr = (currentUserFull?.role || currentUser?.role || (Array.isArray(currentUser?.roles) ? currentUser.roles[0] : '') || '').toUpperCase();
   const isAdmin = ["ADMIN", "OWNER"].includes(userRoleStr);
   const isFullDeptAccess = ["ADMIN", "OWNER", "ACCOUNTANT"].includes(userRoleStr);
-  const managerDeptIds = currentUser?.departmentMember?.map((dm: any) => dm.departmentId) || [];
+  const managerDeptIds = currentUserFull?.departmentMember?.map((dm: any) => dm.departmentId) || [];
 
   const visibleDepartments = isFullDeptAccess
     ? departments
     : departments.filter((d) => managerDeptIds.includes(d.id));
 
   useEffect(() => {
-    if (!isFullDeptAccess && managerDeptIds.length > 0 && !selectedDept) {
-      setSelectedDept(managerDeptIds[0]);
+    if (!isFullDeptAccess && managerDeptIds.length > 0 && visibleDepartments.length > 0 && (!selectedDept || !visibleDepartments.some(d => d.id === selectedDept))) {
+      setSelectedDept(visibleDepartments[0].id);
     }
-  }, [isFullDeptAccess, managerDeptIds, departments]);
+  }, [isFullDeptAccess, managerDeptIds, visibleDepartments, selectedDept]);
 
   useEffect(() => {
     if (paramUserId) setSelectedEmp(paramUserId);

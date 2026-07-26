@@ -17,13 +17,16 @@ export function KpiPendingApprovalList({ currentUser }: { currentUser: any }) {
   const [departments, setDepartments] = useState<any[]>([]);
   const [selectedDept, setSelectedDept] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [employees, setEmployees] = useState<any[]>([]);
   const [processingKey, setProcessingKey] = useState<string | null>(null);
 
-  const userRoleStr = (currentUser?.role || (Array.isArray(currentUser?.roles) ? currentUser.roles[0] : "") || "").toUpperCase();
+  const currentUserId = currentUser?.id || currentUser?.sub;
+  const currentUserFull = employees.find((e) => e.id === currentUserId) || currentUser;
+
+  const userRoleStr = (currentUserFull?.role || currentUser?.role || (Array.isArray(currentUser?.roles) ? currentUser.roles[0] : "") || "").toUpperCase();
   const isAdmin = ["ADMIN", "OWNER"].includes(userRoleStr);
   const isFullDeptAccess = ["ADMIN", "OWNER", "ACCOUNTANT"].includes(userRoleStr);
-  const managerDeptIds = currentUser?.departmentMember?.map((dm: any) => dm.departmentId) || [];
+  const managerDeptIds = currentUserFull?.departmentMember?.map((dm: any) => dm.departmentId) || [];
 
   const visibleDepartments = isFullDeptAccess
     ? departments
@@ -34,6 +37,17 @@ export function KpiPendingApprovalList({ currentUser }: { currentUser: any }) {
       setSelectedDept(visibleDepartments[0].id);
     }
   }, [isFullDeptAccess, managerDeptIds, visibleDepartments, selectedDept]);
+
+  useEffect(() => {
+    fetch("/api/departments")
+      .then((r) => r.json())
+      .then((data) => setDepartments(Array.isArray(data) ? data : []))
+      .catch(console.error);
+    fetch("/api/organization/employees")
+      .then((r) => r.json())
+      .then((data) => setEmployees(Array.isArray(data) ? data : []))
+      .catch(console.error);
+  }, []);
 
   const fetchSheets = async () => {
     setLoading(true);
@@ -55,13 +69,6 @@ export function KpiPendingApprovalList({ currentUser }: { currentUser: any }) {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetch("/api/departments")
-      .then((r) => r.json())
-      .then((data) => setDepartments(Array.isArray(data) ? data : []))
-      .catch(console.error);
-  }, []);
 
   useEffect(() => {
     fetchSheets();

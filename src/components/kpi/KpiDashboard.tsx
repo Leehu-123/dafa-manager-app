@@ -22,9 +22,12 @@ export function KpiDashboard({ user }: { user: any }) {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("month");
 
-  const userRoleStr = (user?.role || (Array.isArray(user?.roles) ? user.roles[0] : '') || '').toUpperCase();
+  const currentUserId = user?.id || user?.sub;
+  const currentUserFull = employees.find((e) => e.id === currentUserId) || user;
+
+  const userRoleStr = (currentUserFull?.role || user?.role || (Array.isArray(user?.roles) ? user.roles[0] : '') || '').toUpperCase();
   const isFullDeptAccess = ["ADMIN", "OWNER", "ACCOUNTANT"].includes(userRoleStr);
-  const managerDeptIds = user?.departmentMember?.map((dm: any) => dm.departmentId) || [];
+  const managerDeptIds = currentUserFull?.departmentMember?.map((dm: any) => dm.departmentId) || [];
 
   const visibleDepartments = isFullDeptAccess
     ? departments
