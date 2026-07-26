@@ -24,8 +24,11 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
   const [actuals, setActuals] = useState<Record<string, string | number>>({});
   const [loading, setLoading] = useState(false);
 
+  const empList = Array.isArray(employees) ? employees : ((employees as any)?.items || []);
+  const deptList = Array.isArray(departments) ? departments : ((departments as any)?.items || []);
+
   const currentUserId = currentUser?.id || currentUser?.sub;
-  const currentUserFull = employees.find((e) => e.id === currentUserId) || currentUser;
+  const currentUserFull = empList.find((e) => e.id === currentUserId) || currentUser;
 
   const userRoleStr = (currentUserFull?.role || currentUser?.role || (Array.isArray(currentUser?.roles) ? currentUser.roles[0] : '') || '').toUpperCase();
   const isAdmin = ["ADMIN", "OWNER"].includes(userRoleStr);
@@ -33,8 +36,8 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
   const managerDeptIds = currentUserFull?.departmentMember?.map((dm: any) => dm.departmentId) || [];
 
   const visibleDepartments = isFullDeptAccess
-    ? departments
-    : departments.filter((d) => managerDeptIds.includes(d.id));
+    ? deptList
+    : deptList.filter((d) => managerDeptIds.includes(d.id));
 
   useEffect(() => {
     if (!isFullDeptAccess && managerDeptIds.length > 0 && visibleDepartments.length > 0 && (!selectedDept || !visibleDepartments.some(d => d.id === selectedDept))) {
@@ -51,12 +54,16 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
   useEffect(() => {
     const fetchDepartments = async () => {
       const res = await fetch("/api/departments");
-      if (res.ok) setDepartments(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setDepartments(Array.isArray(data) ? data : (data?.items || []));
+      }
     };
     const fetchEmployees = async () => {
       const res = await fetch("/api/organization/employees");
       if (res.ok) {
-        setEmployees(await res.json());
+        const data = await res.json();
+        setEmployees(Array.isArray(data) ? data : (data?.items || []));
       }
     };
     fetchDepartments();
@@ -66,7 +73,7 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
   // Logic lọc nhân viên được quyền chấm KPI
   const getFilterableEmployees = () => {
     const activeDept = isFullDeptAccess ? selectedDept : (selectedDept || managerDeptIds[0]);
-    let list = employees;
+    let list = empList;
     if (activeDept) {
       list = list.filter((emp) =>
         emp.departmentMember?.some((dm: any) => dm.departmentId === activeDept)
@@ -74,8 +81,6 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
     }
 
     if (isAdmin) return list;
-
-    const currentUserId = currentUser?.id || currentUser?.sub;
 
     if (userRoleStr === "MANAGER") {
       return list.filter((emp) => {
@@ -95,7 +100,7 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
         const isEmpManager = empRole === "MANAGER" || emp.departmentMember?.some((dm: any) => dm.isHead === true);
 
         const deptHasManager = empDepts.some((deptId) => {
-          return employees.some((otherEmp) => {
+          return empList.some((otherEmp) => {
             if (otherEmp.id === emp.id) return false;
             const otherRole = (otherEmp.role || (Array.isArray(otherEmp.roles) ? otherEmp.roles[0] : '') || '').toUpperCase();
             const isOtherManager = otherRole === "MANAGER" || otherEmp.departmentMember?.some((dm: any) => dm.departmentId === deptId && dm.isHead === true);
@@ -122,12 +127,13 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
         setCriteria([]);
         return;
       }
-      const emp = employees.find(e => e.id === selectedEmp);
+      const emp = empList.find((e: any) => e.id === selectedEmp);
       if (emp && emp.departmentMember && emp.departmentMember.length > 0) {
         const deptId = emp.departmentMember[0].departmentId;
         const res = await fetch(`/api/kpi/criteria?departmentId=${deptId}&userId=${emp.id}`);
         if (res.ok) {
-          setCriteria(await res.json());
+          const data = await res.json();
+          setCriteria(Array.isArray(data) ? data : (data?.items || []));
         }
       }
     };

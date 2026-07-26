@@ -20,8 +20,11 @@ export function KpiPendingApprovalList({ currentUser }: { currentUser: any }) {
   const [employees, setEmployees] = useState<any[]>([]);
   const [processingKey, setProcessingKey] = useState<string | null>(null);
 
+  const empList = Array.isArray(employees) ? employees : ((employees as any)?.items || []);
+  const deptList = Array.isArray(departments) ? departments : ((departments as any)?.items || []);
+
   const currentUserId = currentUser?.id || currentUser?.sub;
-  const currentUserFull = employees.find((e) => e.id === currentUserId) || currentUser;
+  const currentUserFull = empList.find((e: any) => e.id === currentUserId) || currentUser;
 
   const userRoleStr = (currentUserFull?.role || currentUser?.role || (Array.isArray(currentUser?.roles) ? currentUser.roles[0] : "") || "").toUpperCase();
   const isAdmin = ["ADMIN", "OWNER"].includes(userRoleStr);
@@ -29,8 +32,8 @@ export function KpiPendingApprovalList({ currentUser }: { currentUser: any }) {
   const managerDeptIds = currentUserFull?.departmentMember?.map((dm: any) => dm.departmentId) || [];
 
   const visibleDepartments = isFullDeptAccess
-    ? departments
-    : departments.filter((d) => managerDeptIds.includes(d.id));
+    ? deptList
+    : deptList.filter((d: any) => managerDeptIds.includes(d.id));
 
   useEffect(() => {
     if (!isFullDeptAccess && managerDeptIds.length > 0 && visibleDepartments.length > 0 && (!selectedDept || !visibleDepartments.some(d => d.id === selectedDept))) {
@@ -41,11 +44,11 @@ export function KpiPendingApprovalList({ currentUser }: { currentUser: any }) {
   useEffect(() => {
     fetch("/api/departments")
       .then((r) => r.json())
-      .then((data) => setDepartments(Array.isArray(data) ? data : []))
+      .then((data) => setDepartments(Array.isArray(data) ? data : (data?.items || [])))
       .catch(console.error);
     fetch("/api/organization/employees")
       .then((r) => r.json())
-      .then((data) => setEmployees(Array.isArray(data) ? data : []))
+      .then((data) => setEmployees(Array.isArray(data) ? data : (data?.items || [])))
       .catch(console.error);
   }, []);
 

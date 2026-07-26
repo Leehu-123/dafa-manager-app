@@ -22,16 +22,19 @@ export function KpiDashboard({ user }: { user: any }) {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("month");
 
+  const empList = Array.isArray(employees) ? employees : ((employees as any)?.items || []);
+  const deptList = Array.isArray(departments) ? departments : ((departments as any)?.items || []);
+
   const currentUserId = user?.id || user?.sub;
-  const currentUserFull = employees.find((e) => e.id === currentUserId) || user;
+  const currentUserFull = empList.find((e: any) => e.id === currentUserId) || user;
 
   const userRoleStr = (currentUserFull?.role || user?.role || (Array.isArray(user?.roles) ? user.roles[0] : '') || '').toUpperCase();
   const isFullDeptAccess = ["ADMIN", "OWNER", "ACCOUNTANT"].includes(userRoleStr);
   const managerDeptIds = currentUserFull?.departmentMember?.map((dm: any) => dm.departmentId) || [];
 
   const visibleDepartments = isFullDeptAccess
-    ? departments
-    : departments.filter((d) => managerDeptIds.includes(d.id));
+    ? deptList
+    : deptList.filter((d: any) => managerDeptIds.includes(d.id));
 
   useEffect(() => {
     if (!isFullDeptAccess && managerDeptIds.length > 0 && visibleDepartments.length > 0 && (!selectedDept || !visibleDepartments.some(d => d.id === selectedDept))) {
@@ -46,8 +49,14 @@ export function KpiDashboard({ user }: { user: any }) {
           fetch("/api/departments"),
           fetch("/api/organization/employees")
         ]);
-        if (deptRes.ok) setDepartments(await deptRes.json());
-        if (empRes.ok) setEmployees(await empRes.json());
+        if (deptRes.ok) {
+          const dData = await deptRes.json();
+          setDepartments(Array.isArray(dData) ? dData : (dData?.items || []));
+        }
+        if (empRes.ok) {
+          const eData = await empRes.json();
+          setEmployees(Array.isArray(eData) ? eData : (eData?.items || []));
+        }
       }
     };
     fetchDropdowns();
@@ -169,8 +178,8 @@ export function KpiDashboard({ user }: { user: any }) {
                 onChange={(e) => setSelectedEmp(e.target.value)}
               >
                 <option value="">Tất cả nhân viên (Gộp chung)</option>
-                {employees
-                  .filter(emp => {
+                {empList
+                  .filter((emp: any) => {
                     const roleStr = (user?.role || (Array.isArray(user?.roles) ? user.roles[0] : '') || '').toUpperCase();
                     if (roleStr === "MANAGER") {
                       const empDeptIds = emp.departmentMember?.map((dm: any) => dm.departmentId) || [];
