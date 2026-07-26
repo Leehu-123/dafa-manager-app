@@ -46,8 +46,8 @@ export function KpiDashboard({ user }: { user: any }) {
     const fetchDropdowns = async () => {
       if (user.role !== "EMPLOYEE") {
         const [deptRes, empRes] = await Promise.all([
-          fetch("/api/departments"),
-          fetch("/api/organization/employees")
+          fetch("/api/departments?limit=1000"),
+          fetch("/api/organization/employees?limit=1000")
         ]);
         if (deptRes.ok) {
           const dData = await deptRes.json();

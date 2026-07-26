@@ -42,11 +42,11 @@ export function KpiPendingApprovalList({ currentUser }: { currentUser: any }) {
   }, [isFullDeptAccess, managerDeptIds, visibleDepartments, selectedDept]);
 
   useEffect(() => {
-    fetch("/api/departments")
+    fetch("/api/departments?limit=1000")
       .then((r) => r.json())
       .then((data) => setDepartments(Array.isArray(data) ? data : (data?.data || data?.items || [])))
       .catch(console.error);
-    fetch("/api/organization/employees")
+    fetch("/api/organization/employees?limit=1000")
       .then((r) => r.json())
       .then((data) => setEmployees(Array.isArray(data) ? data : (data?.data || data?.items || [])))
       .catch(console.error);

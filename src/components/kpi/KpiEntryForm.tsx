@@ -53,14 +53,14 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
 
   useEffect(() => {
     const fetchDepartments = async () => {
-      const res = await fetch("/api/departments");
+      const res = await fetch("/api/departments?limit=1000");
       if (res.ok) {
         const data = await res.json();
         setDepartments(Array.isArray(data) ? data : (data?.data || data?.items || []));
       }
     };
     const fetchEmployees = async () => {
-      const res = await fetch("/api/organization/employees");
+      const res = await fetch("/api/organization/employees?limit=1000");
       if (res.ok) {
         const data = await res.json();
         setEmployees(Array.isArray(data) ? data : (data?.data || data?.items || []));

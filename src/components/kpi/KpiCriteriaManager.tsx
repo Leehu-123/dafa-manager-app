@@ -26,8 +26,8 @@ export function KpiCriteriaManager() {
     try {
       const [critRes, deptRes, empRes] = await Promise.all([
         fetch(`/api/kpi/criteria${selectedDept ? `?departmentId=${selectedDept}` : ''}`),
-        fetch("/api/departments"),
-        fetch("/api/organization/employees")
+        fetch("/api/departments?limit=1000"),
+        fetch("/api/organization/employees?limit=1000")
       ]);
       
       if (critRes.ok) setCriteria(await critRes.json());
