@@ -24,6 +24,21 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
   const [actuals, setActuals] = useState<Record<string, string | number>>({});
   const [loading, setLoading] = useState(false);
 
+  const userRoleStr = (currentUser?.role || (Array.isArray(currentUser?.roles) ? currentUser.roles[0] : '') || '').toUpperCase();
+  const isAdmin = ["ADMIN", "OWNER"].includes(userRoleStr);
+  const isFullDeptAccess = ["ADMIN", "OWNER", "ACCOUNTANT"].includes(userRoleStr);
+  const managerDeptIds = currentUser?.departmentMember?.map((dm: any) => dm.departmentId) || [];
+
+  const visibleDepartments = isFullDeptAccess
+    ? departments
+    : departments.filter((d) => managerDeptIds.includes(d.id));
+
+  useEffect(() => {
+    if (!isFullDeptAccess && managerDeptIds.length > 0 && !selectedDept) {
+      setSelectedDept(managerDeptIds[0]);
+    }
+  }, [isFullDeptAccess, managerDeptIds, departments]);
+
   useEffect(() => {
     if (paramUserId) setSelectedEmp(paramUserId);
     if (paramPeriodStart) setPeriodStart(paramPeriodStart);
@@ -44,6 +59,59 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
     fetchDepartments();
     fetchEmployees();
   }, []);
+
+  // Logic lọc nhân viên được quyền chấm KPI
+  const getFilterableEmployees = () => {
+    const activeDept = isFullDeptAccess ? selectedDept : (selectedDept || managerDeptIds[0]);
+    let list = employees;
+    if (activeDept) {
+      list = list.filter((emp) =>
+        emp.departmentMember?.some((dm: any) => dm.departmentId === activeDept)
+      );
+    }
+
+    if (isAdmin) return list;
+
+    const currentUserId = currentUser?.id || currentUser?.sub;
+
+    if (userRoleStr === "MANAGER") {
+      return list.filter((emp) => {
+        const inManagerDept = emp.departmentMember?.some((dm: any) =>
+          managerDeptIds.includes(dm.departmentId)
+        );
+        return inManagerDept && emp.id !== currentUserId;
+      });
+    }
+
+    if (userRoleStr === "ACCOUNTANT") {
+      return list.filter((emp) => {
+        const empDepts = emp.departmentMember?.map((dm: any) => dm.departmentId) || [];
+        if (empDepts.length === 0) return true;
+
+        const empRole = (emp.role || (Array.isArray(emp.roles) ? emp.roles[0] : '') || '').toUpperCase();
+        const isEmpManager = empRole === "MANAGER" || emp.departmentMember?.some((dm: any) => dm.isHead === true);
+
+        const deptHasManager = empDepts.some((deptId) => {
+          return employees.some((otherEmp) => {
+            if (otherEmp.id === emp.id) return false;
+            const otherRole = (otherEmp.role || (Array.isArray(otherEmp.roles) ? otherEmp.roles[0] : '') || '').toUpperCase();
+            const isOtherManager = otherRole === "MANAGER" || otherEmp.departmentMember?.some((dm: any) => dm.departmentId === deptId && dm.isHead === true);
+            return isOtherManager;
+          });
+        });
+
+        if (deptHasManager) {
+          return isEmpManager;
+        } else {
+          return true;
+        }
+      });
+    }
+
+    return list;
+  };
+
+  const filteredEmployees = getFilterableEmployees();
 
   useEffect(() => {
     const fetchCriteria = async () => {
@@ -127,6 +195,7 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
   };
 
   const handleApprove = async (action: "APPROVE" | "UNLOCK") => {
+    if (!isAdmin) return alert("Chỉ tài khoản quản trị mới có quyền phê duyệt phiếu KPI");
     if (!selectedEmp || !periodStart || !periodEnd) return alert("Vui lòng điền đủ thông tin kỳ đánh giá");
     
     setLoading(true);
@@ -178,9 +247,9 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium dafa-text">Phòng ban</label>
-            <select className="border dafa-border rounded-md px-3 py-2 text-sm bg-white" value={selectedDept} onChange={(e) => { setSelectedDept(e.target.value); setSelectedEmp(""); }}>
-              <option value="">Tất cả phòng ban</option>
-              {departments.map(d => (
+            <select className="border dafa-border rounded-md px-3 py-2 text-sm bg-white min-w-[180px]" value={selectedDept} onChange={(e) => { setSelectedDept(e.target.value); setSelectedEmp(""); }}>
+              {isFullDeptAccess && <option value="">Tất cả phòng ban</option>}
+              {visibleDepartments.map(d => (
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
             </select>
@@ -189,18 +258,7 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
             <label className="text-sm font-medium dafa-text">Nhân viên</label>
             <select required className="border dafa-border rounded-md px-3 py-2 text-sm bg-white" value={selectedEmp} onChange={(e) => setSelectedEmp(e.target.value)}>
               <option value="">-- Chọn nhân viên --</option>
-              {employees
-                .filter(emp => {
-                  const roleStr = (currentUser?.role || (Array.isArray(currentUser?.roles) ? currentUser.roles[0] : '') || '').toUpperCase();
-                  if (roleStr === "MANAGER") {
-                    const managerDeptIds = currentUser?.departmentMember?.map((dm: any) => dm.departmentId) || [];
-                    const empDeptIds = emp.departmentMember?.map((dm: any) => dm.departmentId) || [];
-                    const isInDept = empDeptIds.some((id: string) => managerDeptIds.includes(id)) || emp.id === currentUser?.id;
-                    if (!isInDept) return false;
-                  }
-                  return !selectedDept || emp.departmentMember?.some((dm: any) => dm.departmentId === selectedDept);
-                })
-                .map(emp => (
+              {filteredEmployees.map(emp => (
                 <option key={emp.id} value={emp.id}>{emp.fullName} - {emp.jobTitle}</option>
               ))}
             </select>

@@ -30,10 +30,10 @@ export function KpiPendingApprovalList({ currentUser }: { currentUser: any }) {
     : departments.filter((d) => managerDeptIds.includes(d.id));
 
   useEffect(() => {
-    if (!isFullDeptAccess && managerDeptIds.length > 0 && !selectedDept) {
-      setSelectedDept(managerDeptIds[0]);
+    if (!isFullDeptAccess && managerDeptIds.length > 0 && visibleDepartments.length > 0 && (!selectedDept || !visibleDepartments.some(d => d.id === selectedDept))) {
+      setSelectedDept(visibleDepartments[0].id);
     }
-  }, [isFullDeptAccess, managerDeptIds]);
+  }, [isFullDeptAccess, managerDeptIds, visibleDepartments, selectedDept]);
 
   const fetchSheets = async () => {
     setLoading(true);
