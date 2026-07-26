@@ -237,7 +237,7 @@ export function KpiDashboard({ user }: { user: any }) {
               <RechartsTooltip />
               <Legend />
               <Bar dataKey="score" name="Điểm đạt được" fill="#A14F39" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="criteria.weight" name="Trọng số (Max)" fill="#e2e8f0" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="criteria.weightPercent" name="Trọng số (Max)" fill="#e2e8f0" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </Card>
@@ -249,7 +249,11 @@ export function KpiDashboard({ user }: { user: any }) {
               <PolarGrid />
               <PolarAngleAxis dataKey="criteria.name" tick={{ fontSize: 12 }} />
               <PolarRadiusAxis />
-              <Radar name="Tỷ lệ hoàn thành (%)" dataKey={(r) => (r.actual / r.criteria.target) * 100} stroke="#A14F39" fill="#A14F39" fillOpacity={0.5} />
+              <Radar name="Tỷ lệ hoàn thành (%)" dataKey={(r) => {
+                const act = r.actualValue ?? r.actual ?? 0;
+                const tgt = r.criteria?.targetValue ?? r.criteria?.target ?? 1;
+                return (act / (tgt || 1)) * 100;
+              }} stroke="#A14F39" fill="#A14F39" fillOpacity={0.5} />
               <RechartsTooltip />
             </RadarChart>
           </ResponsiveContainer>
@@ -262,6 +266,7 @@ export function KpiDashboard({ user }: { user: any }) {
             <thead className="bg-gray-50 dafa-muted border-b dafa-border text-xs uppercase">
               <tr>
                 <th className="px-6 py-3">Tiêu chí</th>
+                <th className="px-6 py-3">Nhân viên</th>
                 <th className="px-6 py-3">Đơn vị</th>
                 <th className="px-6 py-3 text-right">Mục tiêu</th>
                 <th className="px-6 py-3 text-right">Thực tế</th>
@@ -271,26 +276,38 @@ export function KpiDashboard({ user }: { user: any }) {
               </tr>
             </thead>
             <tbody>
-              {filteredRecords.map((r) => (
-                <tr key={r.id} className="border-b dafa-border bg-white hover:bg-gray-50">
-                  <td className="px-6 py-4 font-medium dafa-text">{r.criteria?.name || 'N/A'}</td>
-                  <td className="px-6 py-4 dafa-muted">{r.criteria?.unit}</td>
-                  <td className="px-6 py-4 text-right font-medium">{r.criteria?.targetValue || 0}</td>
-                  <td className="px-6 py-4 text-right font-bold text-blue-600">{r.actual}</td>
-                  <td className="px-6 py-4 text-right">{r.criteria?.weightPercent || 0}</td>
-                  <td className="px-6 py-4 text-right font-bold text-[#A14F39]">{r.score.toFixed(2)}</td>
-                  {user.role !== "EMPLOYEE" && (
-                    <td className="px-6 py-4 text-right">
-                      <button onClick={() => handleDelete(r.id)} className="text-red-500 hover:text-red-700" title="Xóa">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+              {filteredRecords.map((r) => {
+                const act = r.actualValue ?? r.actual ?? 0;
+                const tgt = r.criteria?.targetValue ?? r.criteria?.target ?? 0;
+                const weight = r.criteria?.weightPercent ?? r.criteria?.weight ?? 0;
+                const userName = r.user?.fullName || employees.find(e => e.id === r.userId)?.fullName || 'N/A';
+                const deptName = r.criteria?.department?.name || 'Tất cả';
+
+                return (
+                  <tr key={r.id} className="border-b dafa-border bg-white hover:bg-gray-50">
+                    <td className="px-6 py-4 font-medium dafa-text">{r.criteria?.name || 'N/A'}</td>
+                    <td className="px-6 py-4 dafa-text">
+                      <span className="font-semibold">{userName}</span>
+                      <span className="text-xs dafa-muted block">{deptName}</span>
                     </td>
-                  )}
-                </tr>
-              ))}
+                    <td className="px-6 py-4 dafa-muted">{r.criteria?.unit || '-'}</td>
+                    <td className="px-6 py-4 text-right font-medium">{tgt}</td>
+                    <td className="px-6 py-4 text-right font-bold text-blue-600">{act}</td>
+                    <td className="px-6 py-4 text-right">{weight}</td>
+                    <td className="px-6 py-4 text-right font-bold text-[#A14F39]">{(r.score || 0).toFixed(2)}</td>
+                    {user.role !== "EMPLOYEE" && (
+                      <td className="px-6 py-4 text-right">
+                        <button onClick={() => handleDelete(r.id)} className="text-red-500 hover:text-red-700" title="Xóa">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
               {filteredRecords.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center dafa-muted">Không có dữ liệu</td>
+                  <td colSpan={8} className="px-6 py-8 text-center dafa-muted">Không có dữ liệu</td>
                 </tr>
               )}
             </tbody>
