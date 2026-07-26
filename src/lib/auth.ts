@@ -83,6 +83,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             admin: "ADMIN",
             administrator: "ADMIN",
             manager: "MANAGER",
+            accountant: "ACCOUNTANT",
+            ketoan: "ACCOUNTANT",
             sales: "EMPLOYEE",
             user: "EMPLOYEE",
             employee: "EMPLOYEE",
