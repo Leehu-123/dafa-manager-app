@@ -5,17 +5,18 @@ import { usePathname } from "next/navigation";
 
 export function KpiTabs({ userRole }: { userRole?: string }) {
   const pathname = usePathname();
+  const normRole = (userRole || '').toUpperCase();
   
   const tabs = [
     { name: "Bảng điều khiển", href: "/kpi" },
   ];
 
-  if (userRole !== "EMPLOYEE") {
+  if (normRole !== "EMPLOYEE") {
     tabs.push({ name: "Đánh giá nhân viên", href: "/kpi/entry" });
     tabs.push({ name: "Duyệt Phiếu KPI", href: "/kpi/approval" });
   }
   
-  if (userRole === "ADMIN" || userRole === "OWNER") {
+  if (normRole === "ADMIN" || normRole === "OWNER" || normRole === "ACCOUNTANT") {
     tabs.push({ name: "Cài đặt tiêu chí", href: "/kpi/criteria" });
   }
 

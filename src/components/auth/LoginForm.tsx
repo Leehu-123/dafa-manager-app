@@ -108,12 +108,6 @@ export function LoginForm() {
           )}
           {isLoading ? 'Đang xử lý...' : 'Đăng nhập'}
         </button>
-        
-        <div className="text-center pt-2">
-          <p className="text-xs text-dafa-muted">
-            Mật khẩu mặc định: <code className="bg-dafa-bg px-1.5 py-0.5 rounded text-dafa-accent font-mono">dafa2024</code>
-          </p>
-        </div>
       </form>
     </div>
   );
