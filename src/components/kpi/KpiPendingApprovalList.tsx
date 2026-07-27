@@ -19,6 +19,7 @@ export function KpiPendingApprovalList({ currentUser }: { currentUser: any }) {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [employees, setEmployees] = useState<any[]>([]);
   const [processingKey, setProcessingKey] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const empList = Array.isArray(employees) ? employees : ((employees as any)?.data || (employees as any)?.items || []);
   const deptList = Array.isArray(departments) ? departments : ((departments as any)?.data || (departments as any)?.items || []);
