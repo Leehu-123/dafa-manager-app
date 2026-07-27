@@ -11,8 +11,9 @@ export const metadata = {
 export default async function KpiCriteriaPage() {
   const session = await auth();
   
-  if (!session?.user || session.user.role !== "ADMIN") {
-    redirect("/dashboard");
+  const allowedRoles = ["ADMIN", "OWNER", "ACCOUNTANT", "KETOAN"];
+  if (!session?.user || !allowedRoles.includes(session.user.role)) {
+    redirect("/");
   }
 
   return (
@@ -24,7 +25,7 @@ export default async function KpiCriteriaPage() {
         </p>
       </div>
       <KpiTabs userRole={session.user.role} />
-      <KpiCriteriaManager />
+      <KpiCriteriaManager userRole={session.user.role} />
     </div>
   );
 }

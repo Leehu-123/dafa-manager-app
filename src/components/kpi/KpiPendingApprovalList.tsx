@@ -37,7 +37,7 @@ export function KpiPendingApprovalList({ currentUser }: { currentUser: any }) {
     : deptList.filter((d: any) => managerDeptIds.includes(d.id));
 
   useEffect(() => {
-    if (!isFullDeptAccess && managerDeptIds.length > 0 && visibleDepartments.length > 0 && (!selectedDept || !visibleDepartments.some(d => d.id === selectedDept))) {
+    if (!isFullDeptAccess && managerDeptIds.length > 0 && visibleDepartments.length > 0 && (!selectedDept || !visibleDepartments.some((d: any) => d.id === selectedDept))) {
       setSelectedDept(visibleDepartments[0].id);
     }
   }, [isFullDeptAccess, managerDeptIds, visibleDepartments, selectedDept]);
@@ -67,7 +67,7 @@ export function KpiPendingApprovalList({ currentUser }: { currentUser: any }) {
         const data = await res.json();
         setSheets(Array.isArray(data) ? data : []);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to fetch pending KPI sheets", e);
     } finally {
       setLoading(false);
@@ -98,7 +98,7 @@ export function KpiPendingApprovalList({ currentUser }: { currentUser: any }) {
       } else {
         alert("Lỗi khi xử lý phê duyệt phiếu KPI");
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
       alert("Có lỗi xảy ra trong quá trình xử lý");
     } finally {
@@ -127,7 +127,7 @@ export function KpiPendingApprovalList({ currentUser }: { currentUser: any }) {
       } else {
         alert("Có lỗi xảy ra khi xóa phiếu KPI");
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
       alert("Lỗi kết nối máy chủ");
     } finally {

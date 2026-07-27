@@ -12,7 +12,7 @@ export default async function KpiApprovalPage() {
   const session = await auth();
 
   if (!session?.user || session.user.role === "EMPLOYEE") {
-    redirect("/dashboard");
+    redirect("/");
   }
 
   return (

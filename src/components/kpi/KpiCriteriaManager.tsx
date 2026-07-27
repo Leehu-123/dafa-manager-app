@@ -8,7 +8,8 @@ import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Plus, Edit2, Trash2 } from "lucide-react";
 
-export function KpiCriteriaManager() {
+export function KpiCriteriaManager({ userRole }: { userRole?: string }) {
+  const isAdmin = ["ADMIN", "OWNER"].includes((userRole || "").toUpperCase());
   const [criteria, setCriteria] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -30,9 +31,18 @@ export function KpiCriteriaManager() {
         fetch("/api/organization/employees?limit=1000")
       ]);
       
-      if (critRes.ok) setCriteria(await critRes.json());
-      if (deptRes.ok) setDepartments(await deptRes.json());
-      if (empRes.ok) setEmployees(await empRes.json());
+      if (critRes.ok) {
+        const cData = await critRes.json();
+        setCriteria(Array.isArray(cData) ? cData : (cData?.data || cData?.items || []));
+      }
+      if (deptRes.ok) {
+        const dData = await deptRes.json();
+        setDepartments(Array.isArray(dData) ? dData : (dData?.data || dData?.items || []));
+      }
+      if (empRes.ok) {
+        const eData = await empRes.json();
+        setEmployees(Array.isArray(eData) ? eData : (eData?.data || eData?.items || []));
+      }
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -149,9 +159,11 @@ export function KpiCriteriaManager() {
           </select>
         </div>
         
-        <Button onClick={() => openModal()} className="bg-[#A14F39] hover:bg-[#8a3f2d] text-white">
-          <Plus className="w-4 h-4 mr-2" /> Thêm Tiêu Chí
-        </Button>
+        {isAdmin && (
+          <Button onClick={() => openModal()} className="bg-[#A14F39] hover:bg-[#8a3f2d] text-white">
+            <Plus className="w-4 h-4 mr-2" /> Thêm Tiêu Chí
+          </Button>
+        )}
       </div>
 
       <Card className="overflow-hidden">
@@ -166,7 +178,7 @@ export function KpiCriteriaManager() {
                 <th className="px-6 py-3 text-right">Trọng số</th>
                 <th className="px-6 py-3">Chu kỳ</th>
                 <th className="px-6 py-3 text-center">Trạng thái</th>
-                <th className="px-6 py-3 text-right">Thao tác</th>
+                {isAdmin && <th className="px-6 py-3 text-right">Thao tác</th>}
               </tr>
             </thead>
             <tbody>
@@ -197,16 +209,18 @@ export function KpiCriteriaManager() {
                       {item.isActive ? "Hoạt động" : "Tạm khóa"}
                     </Badge>
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => openModal(item)}>
-                        <Edit2 className="w-4 h-4 text-blue-600" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(item.id)}>
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </Button>
-                    </div>
-                  </td>
+                  {isAdmin && (
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => openModal(item)}>
+                          <Edit2 className="w-4 h-4 text-blue-600" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(item.id)}>
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        </Button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -214,56 +228,58 @@ export function KpiCriteriaManager() {
         </div>
       </Card>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={formData.id ? "Cập nhật tiêu chí" : "Thêm tiêu chí mới"}>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-4">
-          <Input label="Tên tiêu chí" required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
-          <Input label="Mô tả" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Mục tiêu" type="number" required value={formData.target} onChange={(e) => setFormData({...formData, target: Number(e.target.value)})} />
-            <Input label="Đơn vị tính" required value={formData.unit} onChange={(e) => setFormData({...formData, unit: e.target.value})} />
-            <Input label="Trọng số" type="number" required value={formData.weight} onChange={(e) => setFormData({...formData, weight: Number(e.target.value)})} />
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium dafa-text">Chu kỳ</label>
-              <select className="border dafa-border rounded-md px-3 py-2 text-sm bg-white" value={formData.cycle} onChange={(e) => setFormData({...formData, cycle: e.target.value})}>
-                <option value="WEEKLY">Hàng tuần</option>
-                <option value="MONTHLY">Hàng tháng</option>
-                <option value="QUARTERLY">Hàng quý</option>
-              </select>
+      {isAdmin && (
+        <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={formData.id ? "Cập nhật tiêu chí" : "Thêm tiêu chí mới"}>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-4">
+            <Input label="Tên tiêu chí" required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+            <Input label="Mô tả" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Mục tiêu" type="number" required value={formData.target} onChange={(e) => setFormData({...formData, target: Number(e.target.value)})} />
+              <Input label="Đơn vị tính" required value={formData.unit} onChange={(e) => setFormData({...formData, unit: e.target.value})} />
+              <Input label="Trọng số" type="number" required value={formData.weight} onChange={(e) => setFormData({...formData, weight: Number(e.target.value)})} />
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium dafa-text">Chu kỳ</label>
+                <select className="border dafa-border rounded-md px-3 py-2 text-sm bg-white" value={formData.cycle} onChange={(e) => setFormData({...formData, cycle: e.target.value})}>
+                  <option value="WEEKLY">Hàng tuần</option>
+                  <option value="MONTHLY">Hàng tháng</option>
+                  <option value="QUARTERLY">Hàng quý</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium dafa-text">Loại tiêu chí</label>
+                <select className="border dafa-border rounded-md px-3 py-2 text-sm bg-white" value={formData.comparisonType} onChange={(e) => setFormData({...formData, comparisonType: e.target.value})}>
+                  <option value="HIGHER_BETTER">Càng cao càng tốt</option>
+                  <option value="LOWER_BETTER">Càng thấp càng tốt</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium dafa-text">Phòng ban</label>
+                <select required className="border dafa-border rounded-md px-3 py-2 text-sm bg-white" value={formData.departmentId} onChange={(e) => setFormData({...formData, departmentId: e.target.value, userId: ""})}>
+                  <option value="">Chọn phòng ban</option>
+                  {departments.map(d => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium dafa-text">Áp dụng cho (Tuỳ chọn)</label>
+                <select className="border dafa-border rounded-md px-3 py-2 text-sm bg-white" value={formData.userId} onChange={(e) => setFormData({...formData, userId: e.target.value})}>
+                  <option value="">Tất cả nhân viên trong phòng</option>
+                  {employees
+                    .filter(emp => !formData.departmentId || emp.departmentMember?.some((dm: any) => dm.departmentId === formData.departmentId))
+                    .map(emp => (
+                    <option key={emp.id} value={emp.id}>{emp.fullName}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium dafa-text">Loại tiêu chí</label>
-              <select className="border dafa-border rounded-md px-3 py-2 text-sm bg-white" value={formData.comparisonType} onChange={(e) => setFormData({...formData, comparisonType: e.target.value})}>
-                <option value="HIGHER_BETTER">Càng cao càng tốt</option>
-                <option value="LOWER_BETTER">Càng thấp càng tốt</option>
-              </select>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>Hủy</Button>
+              <Button type="submit" className="bg-[#A14F39] text-white hover:bg-[#8a3f2d]">Lưu lại</Button>
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium dafa-text">Phòng ban</label>
-              <select required className="border dafa-border rounded-md px-3 py-2 text-sm bg-white" value={formData.departmentId} onChange={(e) => setFormData({...formData, departmentId: e.target.value, userId: ""})}>
-                <option value="">Chọn phòng ban</option>
-                {departments.map(d => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium dafa-text">Áp dụng cho (Tuỳ chọn)</label>
-              <select className="border dafa-border rounded-md px-3 py-2 text-sm bg-white" value={formData.userId} onChange={(e) => setFormData({...formData, userId: e.target.value})}>
-                <option value="">Tất cả nhân viên trong phòng</option>
-                {employees
-                  .filter(emp => !formData.departmentId || emp.departmentMember?.some((dm: any) => dm.departmentId === formData.departmentId))
-                  .map(emp => (
-                  <option key={emp.id} value={emp.id}>{emp.fullName}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 mt-4">
-            <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>Hủy</Button>
-            <Button type="submit" className="bg-[#A14F39] text-white hover:bg-[#8a3f2d]">Lưu lại</Button>
-          </div>
-        </form>
-      </Modal>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 }

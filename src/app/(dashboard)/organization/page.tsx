@@ -13,7 +13,7 @@ export default async function OrganizationPage() {
   const session = await auth();
   
   if (!session?.user || session.user.role !== "ADMIN") {
-    redirect("/dashboard");
+    redirect("/");
   }
 
   return (

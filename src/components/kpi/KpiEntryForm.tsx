@@ -40,7 +40,7 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
     : deptList.filter((d) => managerDeptIds.includes(d.id));
 
   useEffect(() => {
-    if (!isFullDeptAccess && managerDeptIds.length > 0 && visibleDepartments.length > 0 && (!selectedDept || !visibleDepartments.some(d => d.id === selectedDept))) {
+    if (!isFullDeptAccess && managerDeptIds.length > 0 && visibleDepartments.length > 0 && (!selectedDept || !visibleDepartments.some((d: any) => d.id === selectedDept))) {
       setSelectedDept(visibleDepartments[0].id);
     }
   }, [isFullDeptAccess, managerDeptIds, visibleDepartments, selectedDept]);
@@ -99,18 +99,24 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
         const empRole = (emp.role || (Array.isArray(emp.roles) ? emp.roles[0] : '') || '').toUpperCase();
         const isEmpManager = empRole === "MANAGER" || emp.departmentMember?.some((dm: any) => dm.isHead === true);
 
+        // Kiểm tra xem phòng ban của nhân viên này có trưởng bộ phận hay không
+        // Quan trọng: phải kiểm tra trưởng bộ phận THỰC SỰ thuộc phòng ban đó
         const deptHasManager = empDepts.some((deptId) => {
           return empList.some((otherEmp) => {
             if (otherEmp.id === emp.id) return false;
             const otherRole = (otherEmp.role || (Array.isArray(otherEmp.roles) ? otherEmp.roles[0] : '') || '').toUpperCase();
-            const isOtherManager = otherRole === "MANAGER" || otherEmp.departmentMember?.some((dm: any) => dm.departmentId === deptId && dm.isHead === true);
+            const isInSameDept = otherEmp.departmentMember?.some((dm: any) => dm.departmentId === deptId);
+            // Trưởng bộ phận = user có role MANAGER VÀ thuộc phòng ban đó, HOẶC có isHead=true trong phòng ban đó
+            const isOtherManager = (otherRole === "MANAGER" && isInSameDept) || otherEmp.departmentMember?.some((dm: any) => dm.departmentId === deptId && dm.isHead === true);
             return isOtherManager;
           });
         });
 
         if (deptHasManager) {
+          // Phòng ban có trưởng bộ phận → kế toán chỉ chấm cho trưởng bộ phận
           return isEmpManager;
         } else {
+          // Phòng ban không có trưởng bộ phận → kế toán chấm cho tất cả nhân viên
           return true;
         }
       });
@@ -258,7 +264,7 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
             <label className="text-sm font-medium dafa-text">Phòng ban</label>
             <select className="border dafa-border rounded-md px-3 py-2 text-sm bg-white min-w-[180px]" value={selectedDept} onChange={(e) => { setSelectedDept(e.target.value); setSelectedEmp(""); }}>
               {isFullDeptAccess && <option value="">Tất cả phòng ban</option>}
-              {visibleDepartments.map(d => (
+              {visibleDepartments.map((d: any) => (
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
             </select>
@@ -267,7 +273,7 @@ export function KpiEntryForm({ currentUser }: { currentUser: any }) {
             <label className="text-sm font-medium dafa-text">Nhân viên</label>
             <select required className="border dafa-border rounded-md px-3 py-2 text-sm bg-white" value={selectedEmp} onChange={(e) => setSelectedEmp(e.target.value)}>
               <option value="">-- Chọn nhân viên --</option>
-              {filteredEmployees.map(emp => (
+              {filteredEmployees.map((emp: any) => (
                 <option key={emp.id} value={emp.id}>{emp.fullName} - {emp.jobTitle}</option>
               ))}
             </select>

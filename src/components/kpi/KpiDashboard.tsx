@@ -37,7 +37,7 @@ export function KpiDashboard({ user }: { user: any }) {
     : deptList.filter((d: any) => managerDeptIds.includes(d.id));
 
   useEffect(() => {
-    if (!isFullDeptAccess && managerDeptIds.length > 0 && visibleDepartments.length > 0 && (!selectedDept || !visibleDepartments.some(d => d.id === selectedDept))) {
+    if (!isFullDeptAccess && managerDeptIds.length > 0 && visibleDepartments.length > 0 && (!selectedDept || !visibleDepartments.some((d: any) => d.id === selectedDept))) {
       setSelectedDept(visibleDepartments[0].id);
     }
   }, [isFullDeptAccess, managerDeptIds, visibleDepartments, selectedDept]);
@@ -168,7 +168,7 @@ export function KpiDashboard({ user }: { user: any }) {
                 onChange={(e) => { setSelectedDept(e.target.value); setSelectedEmp(""); }}
               >
                 {isFullDeptAccess && <option value="">Tất cả phòng ban</option>}
-                {visibleDepartments.map(d => (
+                {visibleDepartments.map((d: any) => (
                   <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
               </select>
@@ -189,7 +189,7 @@ export function KpiDashboard({ user }: { user: any }) {
                     const deptToFilter = isFullDeptAccess ? selectedDept : (selectedDept || managerDeptIds[0]);
                     return !deptToFilter || emp.departmentMember?.some((dm: any) => dm.departmentId === deptToFilter);
                   })
-                  .map(emp => (
+                  .map((emp: any) => (
                   <option key={emp.id} value={emp.id}>{emp.fullName}</option>
                 ))}
               </select>
