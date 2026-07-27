@@ -51,7 +51,6 @@ async function handleProxy(req: NextRequest, paramsPromise: Promise<{ proxy: str
     }
     
     // params is a Promise in Next 15, await it
-    const params = await paramsPromise;
     const path = params.proxy.join("/");
     
     // Xử lý query params
