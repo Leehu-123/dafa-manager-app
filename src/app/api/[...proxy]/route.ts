@@ -24,6 +24,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ p
 
 async function handleProxy(req: NextRequest, paramsPromise: Promise<{ proxy: string[] }>) {
   try {
+    const params = await paramsPromise;
+    if (params.proxy && params.proxy[0] === 'auth') {
+      return new NextResponse(JSON.stringify({ error: "Auth routes are handled by NextAuth" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+    
     let token: string | undefined;
     try {
       const tokenObj = await getToken({ 
