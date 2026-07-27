@@ -73,7 +73,7 @@ export function UserMenu({ user }: UserMenuProps) {
             <button 
               className="group flex w-full items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
               onClick={() => {
-                signOut({ callbackUrl: '/api/auth/signin' });
+                signOut({ callbackUrl: '/login' });
                 setIsOpen(false);
               }}
             >
