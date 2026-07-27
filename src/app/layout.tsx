@@ -13,6 +13,12 @@ export const metadata: Metadata = {
   description: "Hệ thống quản lý công việc và đánh giá KPI nội bộ của DAFA Glass",
   icons: {
     icon: "/dafa-logo.png",
+    apple: "/dafa-logo.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "DAFA",
   },
 };
 
