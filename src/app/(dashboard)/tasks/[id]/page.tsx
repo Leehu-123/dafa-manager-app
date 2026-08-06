@@ -11,7 +11,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
 
   return (
     <div className="p-6">
-      <TaskDetail taskId={id} />
+      <TaskDetail taskId={id} currentUserId={session.user.id} />
     </div>
   );
 }

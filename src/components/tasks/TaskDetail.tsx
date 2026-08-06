@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/Input";
 import { ArrowLeft, Clock, MapPin, Building, User, Calendar, Edit, Trash2, Send, Paperclip } from "lucide-react";
 import { cn, formatDateTime, formatDate, getStatusLabel, getStatusColor, getPriorityLabel, getPriorityColor, getInitials } from "@/lib/utils";
 
-export default function TaskDetail({ taskId }: { taskId: string }) {
+export default function TaskDetail({ taskId, currentUserId }: { taskId: string, currentUserId?: string }) {
   const router = useRouter();
   const [task, setTask] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -18,8 +18,7 @@ export default function TaskDetail({ taskId }: { taskId: string }) {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-  const { data: session } = useSession();
-  const currentUserId = session?.user?.id;
+
 
   const fetchTask = async () => {
     try {
