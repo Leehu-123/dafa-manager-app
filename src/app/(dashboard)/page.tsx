@@ -9,9 +9,14 @@ export default async function DashboardPage() {
 
   const role = session.user.role;
   const userName = session.user.name || session.user.email || '';
+  const userId = session.user.id;
 
   try {
-    const data = await fetchFromCoreAPI('/dafa-tasks/dashboard-stats');
+    const [data, announcementData, documentData] = await Promise.all([
+      fetchFromCoreAPI('/dafa-tasks/dashboard-stats'),
+      fetchFromCoreAPI('/company-documents?type=ANNOUNCEMENT&limit=10').catch(() => ({ items: [] })),
+      fetchFromCoreAPI('/company-documents?type=DOCUMENT&limit=50').catch(() => ({ items: [] })),
+    ]);
 
     return (
       <DashboardContent
@@ -20,6 +25,9 @@ export default async function DashboardPage() {
         departments={data.departments || []}
         role={role}
         userName={userName}
+        userId={userId}
+        announcements={announcementData.items || announcementData || []}
+        documents={documentData.items || documentData || []}
       />
     );
   } catch (error) {

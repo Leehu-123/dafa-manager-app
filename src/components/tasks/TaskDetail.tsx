@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -17,6 +18,8 @@ export default function TaskDetail({ taskId }: { taskId: string }) {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id;
 
   const fetchTask = async () => {
     try {
@@ -115,6 +118,24 @@ export default function TaskDetail({ taskId }: { taskId: string }) {
     }
   };
 
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    if (!confirm("Bạn có chắc chắn muốn xóa file này?")) return;
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/attachments/${attachmentId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        fetchTask();
+      } else {
+        const errText = await res.text();
+        alert(`Lỗi khi xóa file: ${errText}`);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert("Lỗi khi xóa file");
+    }
+  };
+
   const submitComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!comment.trim()) return;
@@ -200,13 +221,27 @@ export default function TaskDetail({ taskId }: { taskId: string }) {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {task.attachments.map((a: any) => (
-                  <a key={a.id} href={a.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                    <Paperclip className="w-5 h-5 text-gray-400 mr-3 shrink-0" />
-                    <div className="overflow-hidden">
-                      <p className="text-sm font-medium truncate text-dafa-text" title={a.fileName}>{a.fileName}</p>
-                      <p className="text-xs text-gray-500">{Math.round(a.fileSize / 1024)} KB • {formatDateTime(a.createdAt)}</p>
-                    </div>
-                  </a>
+                  <div key={a.id} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors group">
+                    <a href={a.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center flex-1 min-w-0">
+                      <Paperclip className="w-5 h-5 text-gray-400 mr-3 shrink-0" />
+                      <div className="overflow-hidden">
+                        <p className="text-sm font-medium truncate text-dafa-text" title={a.fileName}>{a.fileName}</p>
+                        <p className="text-xs text-gray-500">
+                          {a.uploadedBy?.fullName && <span className="text-gray-600">{a.uploadedBy.fullName} • </span>}
+                          {Math.round((a.fileSize || 0) / 1024)} KB • {formatDateTime(a.createdAt)}
+                        </p>
+                      </div>
+                    </a>
+                    {currentUserId && a.uploadedById === currentUserId && (
+                      <button
+                        onClick={() => handleDeleteAttachment(a.id)}
+                        className="ml-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                        title="Xóa file"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             )}

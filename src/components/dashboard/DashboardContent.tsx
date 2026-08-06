@@ -10,8 +10,10 @@ import {
   ListTodo,
   Eye,
   TrendingUp,
+  Bell, FileText, Plus, Download, X, Upload
 } from 'lucide-react';
 import Link from 'next/link';
+import { useState } from 'react';
 import { formatDate, getStatusLabel, getStatusColor, getPriorityLabel, getPriorityColor, getInitials } from '@/lib/utils';
 
 interface DashboardStats {
@@ -51,11 +53,73 @@ interface Props {
   departments: DepartmentItem[];
   role: string;
   userName: string;
+  userId: string;
+  announcements: any[];
+  documents: any[];
 }
 
-export function DashboardContent({ stats, recentTasks, departments, role, userName }: Props) {
+export function DashboardContent({ stats, recentTasks, departments, role, userName, userId, announcements, documents }: Props) {
   const greeting = getGreeting();
   const firstName = userName.split(' ').pop() || userName;
+
+  const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
+  const [showDocumentForm, setShowDocumentForm] = useState(false);
+  const [formTitle, setFormTitle] = useState('');
+  const [formContent, setFormContent] = useState('');
+  const [formFile, setFormFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const isAdmin = role === 'ADMIN';
+
+  const handleCreateDocument = async (type: 'ANNOUNCEMENT' | 'DOCUMENT') => {
+    if (!formTitle.trim()) return alert('Vui lòng nhập tiêu đề');
+    setSubmitting(true);
+    try {
+      let fileUrl = '';
+      let fileName = '';
+      if (formFile) {
+        const fd = new FormData();
+        fd.append('file', formFile);
+        const uploadRes = await fetch('/api/upload', { method: 'POST', body: fd });
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          fileUrl = uploadData.url;
+          fileName = uploadData.filename || uploadData.fileName || formFile.name;
+        }
+      }
+      const res = await fetch('/api/company-documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: formTitle, content: formContent, type, fileUrl, fileName }),
+      });
+      if (res.ok) {
+        setFormTitle('');
+        setFormContent('');
+        setFormFile(null);
+        setShowAnnouncementForm(false);
+        setShowDocumentForm(false);
+        window.location.reload();
+      } else {
+        alert('Lỗi khi tạo');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Lỗi khi tạo');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteDocument = async (docId: string) => {
+    if (!confirm('Bạn có chắc chắn muốn xóa?')) return;
+    try {
+      const res = await fetch(`/api/company-documents/${docId}`, { method: 'DELETE' });
+      if (res.ok) window.location.reload();
+      else alert('Lỗi khi xóa');
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -281,6 +345,187 @@ export function DashboardContent({ stats, recentTasks, departments, role, userNa
                 ))}
               </div>
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* Thông báo nội bộ */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center">
+              <Bell className="w-4 h-4" />
+            </div>
+            <h2 className="text-lg font-bold text-dafa-primary">Thông báo nội bộ</h2>
+          </div>
+          {isAdmin && (
+            <button
+              onClick={() => { setShowAnnouncementForm(!showAnnouncementForm); setShowDocumentForm(false); }}
+              className="flex items-center gap-1 text-sm text-dafa-accent hover:text-dafa-accent/80 font-medium"
+            >
+              <Plus className="w-4 h-4" /> Tạo thông báo
+            </button>
+          )}
+        </div>
+        {showAnnouncementForm && (
+          <div className="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-3">
+            <input
+              type="text"
+              placeholder="Tiêu đề thông báo..."
+              value={formTitle}
+              onChange={(e) => setFormTitle(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dafa-accent/50"
+            />
+            <textarea
+              placeholder="Nội dung thông báo..."
+              value={formContent}
+              onChange={(e) => setFormContent(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dafa-accent/50"
+            />
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1 text-sm text-gray-600 cursor-pointer hover:text-dafa-accent">
+                <Upload className="w-4 h-4" />
+                <span>{formFile ? formFile.name : 'Đính kèm file'}</span>
+                <input type="file" className="hidden" onChange={(e) => setFormFile(e.target.files?.[0] || null)} />
+              </label>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleCreateDocument('ANNOUNCEMENT')}
+                disabled={submitting}
+                className="px-4 py-2 bg-dafa-accent text-white rounded-lg text-sm font-medium hover:bg-dafa-accent/90 disabled:opacity-50"
+              >
+                {submitting ? 'Đang gửi...' : 'Gửi thông báo (+ Telegram)'}
+              </button>
+              <button
+                onClick={() => { setShowAnnouncementForm(false); setFormTitle(''); setFormContent(''); setFormFile(null); }}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm"
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
+        )}
+        <div className="space-y-3">
+          {announcements.length === 0 ? (
+            <p className="text-sm text-dafa-muted italic">Chưa có thông báo nào.</p>
+          ) : (
+            announcements.slice(0, 5).map((a: any) => (
+              <div key={a.id} className="p-3 border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors group">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-dafa-primary">{a.title}</p>
+                    {a.content && <p className="text-xs text-gray-600 mt-1 line-clamp-2">{a.content}</p>}
+                    <p className="text-xs text-dafa-muted mt-1">
+                      {a.createdBy?.fullName} • {new Date(a.createdAt).toLocaleDateString('vi-VN')}
+                    </p>
+                    {a.fileUrl && (
+                      <a href={a.fileUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mt-1">
+                        <Download className="w-3 h-3" /> {a.fileName || 'Tải file'}
+                      </a>
+                    )}
+                  </div>
+                  {isAdmin && (
+                    <button onClick={() => handleDeleteDocument(a.id)} className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all" title="Xóa">
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Tài liệu công ty */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
+              <FileText className="w-4 h-4" />
+            </div>
+            <h2 className="text-lg font-bold text-dafa-primary">Tài liệu công ty</h2>
+          </div>
+          {isAdmin && (
+            <button
+              onClick={() => { setShowDocumentForm(!showDocumentForm); setShowAnnouncementForm(false); }}
+              className="flex items-center gap-1 text-sm text-dafa-accent hover:text-dafa-accent/80 font-medium"
+            >
+              <Plus className="w-4 h-4" /> Thêm tài liệu
+            </button>
+          )}
+        </div>
+        {showDocumentForm && (
+          <div className="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-3">
+            <input
+              type="text"
+              placeholder="Tên tài liệu..."
+              value={formTitle}
+              onChange={(e) => setFormTitle(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dafa-accent/50"
+            />
+            <textarea
+              placeholder="Mô tả tài liệu (tùy chọn)..."
+              value={formContent}
+              onChange={(e) => setFormContent(e.target.value)}
+              rows={2}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dafa-accent/50"
+            />
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1 text-sm text-gray-600 cursor-pointer hover:text-dafa-accent">
+                <Upload className="w-4 h-4" />
+                <span>{formFile ? formFile.name : 'Chọn file đính kèm'}</span>
+                <input type="file" className="hidden" onChange={(e) => setFormFile(e.target.files?.[0] || null)} />
+              </label>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleCreateDocument('DOCUMENT')}
+                disabled={submitting}
+                className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50"
+              >
+                {submitting ? 'Đang lưu...' : 'Lưu tài liệu'}
+              </button>
+              <button
+                onClick={() => { setShowDocumentForm(false); setFormTitle(''); setFormContent(''); setFormFile(null); }}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm"
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
+        )}
+        <div className="space-y-3">
+          {documents.length === 0 ? (
+            <p className="text-sm text-dafa-muted italic">Chưa có tài liệu nào.</p>
+          ) : (
+            documents.map((d: any) => (
+              <div key={d.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors group">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-dafa-primary truncate">{d.title}</p>
+                    {d.content && <p className="text-xs text-gray-500 truncate">{d.content}</p>}
+                    <p className="text-xs text-dafa-muted">{d.createdBy?.fullName} • {new Date(d.createdAt).toLocaleDateString('vi-VN')}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  {d.fileUrl && (
+                    <a href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Tải xuống">
+                      <Download className="w-4 h-4" />
+                    </a>
+                  )}
+                  {isAdmin && (
+                    <button onClick={() => handleDeleteDocument(d.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all" title="Xóa">
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
           )}
         </div>
       </div>
